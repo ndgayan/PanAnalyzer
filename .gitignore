@@ -1,2 +1,5 @@
 DATA/
 OUTPUT/
+
+__pycache__/
+.env

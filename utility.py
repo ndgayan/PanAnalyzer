@@ -3,6 +3,71 @@ import os
 import shutil
 import subprocess
 
+########################################################################################################################
+# Helper Methods
+########################################################################################################################
+
+
+def _filter_samples_by_type(samples_dict, filter_type):
+    """Filter samples dictionary by type."""
+    return {
+        sample_id: info
+        for sample_id, info in samples_dict.items()
+        if info[0] == filter_type
+    }
+
+
+def _create_file_lookup(file_paths):
+    """Create a filename to filepath mapping for quick lookup."""
+    return {os.path.basename(f): f for f in file_paths}
+
+
+def _find_paired_read_files(
+    sample_id, available_files, forward_postfix, reverse_postfix
+):
+    """Find forward and reverse read files for a sample."""
+    forward_file = reverse_file = None
+
+    for filename, filepath in available_files.items():
+        if filename.startswith(f"{sample_id}_"):
+            if filename.endswith(forward_postfix):
+                forward_file = filepath
+            elif filename.endswith(reverse_postfix):
+                reverse_file = filepath
+
+    return forward_file, reverse_file
+
+
+def _generate_missing_file_errors(
+    sample_id, forward_file, reverse_file, forward_postfix, reverse_postfix
+):
+    """Generate error messages for missing files."""
+    errors = []
+    if not forward_file:
+        errors.append(
+            f"  - {sample_id}: Missing forward read (expected: {sample_id}_*{forward_postfix})"
+        )
+    if not reverse_file:
+        errors.append(
+            f"  - {sample_id}: Missing reverse read (expected: {sample_id}_*{reverse_postfix})"
+        )
+    return errors
+
+
+def _raise_validation_error(missing_files, error_type="files"):
+    """Raise a FileNotFoundError with formatted error message."""
+    error_msg = (
+        f"\n❌ VALIDATION FAILED: Missing {len(missing_files)} required {error_type}:\n"
+        + "\n".join(missing_files)
+    )
+    print(error_msg)
+    raise FileNotFoundError(error_msg)
+
+
+########################################################################################################################
+# Directory and File Handling Methods
+########################################################################################################################
+
 
 def clean_output_directory(output_dir):
     """
@@ -83,60 +148,9 @@ def read_study_file(file_path):
     return sample_dict
 
 
-def _filter_samples_by_type(samples_dict, filter_type):
-    """Filter samples dictionary by type."""
-    return {
-        sample_id: info
-        for sample_id, info in samples_dict.items()
-        if info[0] == filter_type
-    }
-
-
-def _create_file_lookup(file_paths):
-    """Create a filename to filepath mapping for quick lookup."""
-    return {os.path.basename(f): f for f in file_paths}
-
-
-def _find_paired_read_files(
-    sample_id, available_files, forward_postfix, reverse_postfix
-):
-    """Find forward and reverse read files for a sample."""
-    forward_file = reverse_file = None
-
-    for filename, filepath in available_files.items():
-        if filename.startswith(f"{sample_id}_"):
-            if filename.endswith(forward_postfix):
-                forward_file = filepath
-            elif filename.endswith(reverse_postfix):
-                reverse_file = filepath
-
-    return forward_file, reverse_file
-
-
-def _generate_missing_file_errors(
-    sample_id, forward_file, reverse_file, forward_postfix, reverse_postfix
-):
-    """Generate error messages for missing files."""
-    errors = []
-    if not forward_file:
-        errors.append(
-            f"  - {sample_id}: Missing forward read (expected: {sample_id}_*{forward_postfix})"
-        )
-    if not reverse_file:
-        errors.append(
-            f"  - {sample_id}: Missing reverse read (expected: {sample_id}_*{reverse_postfix})"
-        )
-    return errors
-
-
-def _raise_validation_error(missing_files, error_type="files"):
-    """Raise a FileNotFoundError with formatted error message."""
-    error_msg = (
-        f"\n❌ VALIDATION FAILED: Missing {len(missing_files)} required {error_type}:\n"
-        + "\n".join(missing_files)
-    )
-    print(error_msg)
-    raise FileNotFoundError(error_msg)
+########################################################################################################################
+# Sample Validation Methods
+########################################################################################################################
 
 
 def validate_sample_files(
@@ -259,6 +273,83 @@ def validate_reference_files(
     return validated_references
 
 
+def validate_spades_output(samples_dict, spades_output_dir, filter_type="Sample"):
+    """
+    Validate that each sample has a corresponding output folder with contigs.fasta.
+
+    Args:
+        samples_dict (dict): Dictionary with sample IDs as keys and [type, species_name] as values
+        spades_output_dir (str): Path to SPAdes output directory
+        filter_type (str): Filter samples by type (default: "Sample")
+
+    Returns:
+        dict: Dictionary with sample IDs as keys and contigs.fasta paths as values
+
+    Raises:
+        FileNotFoundError: If any sample folder or contigs.fasta is missing
+    """
+    filtered_samples = {
+        sample_id: info
+        for sample_id, info in samples_dict.items()
+        if info[0] == filter_type
+    }
+
+    print(f"\nValidating SPAdes output for {len(filtered_samples)} samples...")
+
+    contigs_dict = {}
+    missing_folders = []
+    missing_contigs = []
+
+    for sample_id in filtered_samples.keys():
+        sample_folder = os.path.join(spades_output_dir, sample_id)
+        contigs_file = os.path.join(sample_folder, "contigs.fasta")
+
+        # Check if sample folder exists
+        if not os.path.exists(sample_folder):
+            missing_folders.append(
+                f"  - {sample_id}: Folder not found ({sample_folder})"
+            )
+            continue
+
+        # Check if contigs.fasta exists
+        if not os.path.exists(contigs_file):
+            missing_contigs.append(
+                f"  - {sample_id}: contigs.fasta not found ({contigs_file})"
+            )
+            continue
+
+        contigs_dict[sample_id] = contigs_file
+
+    # Report errors
+    if missing_folders or missing_contigs:
+        error_msg = "\n❌ VALIDATION FAILED:\n"
+
+        if missing_folders:
+            error_msg += (
+                f"\nMissing sample folders ({len(missing_folders)}):\n"
+                + "\n".join(missing_folders)
+            )
+
+        if missing_contigs:
+            error_msg += (
+                f"\nMissing contigs.fasta files ({len(missing_contigs)}):\n"
+                + "\n".join(missing_contigs)
+            )
+
+        print(error_msg)
+        raise FileNotFoundError(error_msg)
+
+    print(
+        f"✅ Validation successful: All {len(contigs_dict)} samples have contigs.fasta files"
+    )
+    return contigs_dict
+
+
+########################################################################################################################
+# Bash Command Execution Method
+########################################################################################################################
+
+
 def bash_execute(command):
     """
     Execute a bash command and return the result.
@@ -271,53 +362,3 @@ def bash_execute(command):
         return {"success": True, "result": result}
     except subprocess.CalledProcessError as e:
         return {"success": False, "error": e}
-
-
-def run_spades_for_sample(
-    sample_id, r1_file, r2_file, output_dir, conda_path, conda_env
-):
-    """
-    Run SPAdes for a single sample using conda run.
-
-    Args:
-        sample_id: Sample identifier
-        r1_file: Path to forward reads file
-        r2_file: Path to reverse reads file
-        output_dir: Output directory for SPAdes results
-
-    Returns:
-        bool: True if successful, False otherwise
-    """
-    os.makedirs(output_dir, exist_ok=True)
-
-    print(f"Running SPAdes for sample: {sample_id}")
-    # Use 'conda run' to execute spades in the specified environment
-    command = [
-        conda_path,
-        "run",
-        "-n",
-        conda_env,
-        "spades.py",
-        "--isolate",
-        "-o",
-        output_dir,
-        "-1",
-        r1_file,
-        "-2",
-        r2_file,
-    ]
-
-    try:
-        result = subprocess.run(command, check=True, capture_output=True, text=True)
-
-        print(f"✓ Completed: {sample_id}")
-        print("-" * 60)
-        print("")
-        return True
-
-    except subprocess.CalledProcessError as e:
-        print(f"✗ Error running SPAdes for {sample_id}:")
-        print(f"  {e.stderr}")
-        print("-" * 60)
-        print("")
-        return False

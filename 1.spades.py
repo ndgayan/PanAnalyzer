@@ -15,12 +15,17 @@ CONDA_PATH = os.path.expanduser("~/miniconda3/bin/conda")
 CONDA_ENV = "GEM"
 
 SAMPLES_PREFIX = "Study-All.csv"  # Name of the study file
+REFERENCE_FILE_EXTENSION = ".fna"
+
+TEMP_OUTPUT = "./OUTPUT/TEMP"
 
 SPADES_OUTPUT = "./OUTPUT/SPAdes_Results"
 SAMPLE_FORWARD_READS_POSTFIX = "R1_001.trim.fastq.gz"
 SAMPLE_REVERSE_READS_POSTFIX = "R2_001.trim.fastq.gz"
 
-REFERENCE_FILE_EXTENSION = ".fna"
+ANVIO_PROJECT_NAME = "PanAnalyzer"
+ANVIO_GENOMES_DB = f"{ANVIO_PROJECT_NAME}-Genomes.db"
+ANVIO_OUTPUT = "./OUTPUT/Anvio_Results"
 
 PIPE_SPADES = False
 PIPE_ANVI_O = True
@@ -97,6 +102,8 @@ if __name__ == "__main__":
 
     if PIPE_ANVI_O:
         # Load reference genome information to the pan genome Analysis
+        app_utility.clean_output_directory(ANVIO_OUTPUT)
+        app_utility.clean_output_directory(TEMP_OUTPUT)
         # Validate Reference files
         try:
             # Get all files in the Reference directory
@@ -119,3 +126,112 @@ if __name__ == "__main__":
                 "\n⚠️  PROCESS STOPPED: Cannot proceed without all required reference files"
             )
             exit(1)
+
+        try:
+            validated_contigs = app_utility.validate_spades_output(
+                samples_dict=samples,
+                spades_output_dir=SPADES_OUTPUT,
+                filter_type="Sample",
+            )
+        except FileNotFoundError:
+            print(
+                "\n⚠️  PROCESS STOPPED: Cannot proceed without all contigs.fasta files"
+            )
+            exit(1)
+
+        combined_genomes = {}
+        for sample_id, contig_path in validated_contigs.items():
+            combined_genomes[sample_id] = contig_path
+        for ref_id, ref_data in validated_references.items():
+            combined_genomes[ref_id] = ref_data["file"]
+
+        for genome_id, genome_file in combined_genomes.items():
+            db_file_name = ANVIO_OUTPUT + f"/{genome_id}.db"
+
+            # NCBI Reference genomes need to be reformatted
+            temp_genome_file = None
+            if genome_file.endswith(REFERENCE_FILE_EXTENSION):
+                temp_genome_file = TEMP_OUTPUT + f"/{genome_id}.fna"
+                command = [
+                    CONDA_PATH,
+                    "run",
+                    "-n",
+                    CONDA_ENV,
+                    "anvi-script-reformat-fasta",
+                    genome_file,
+                    "-o",
+                    temp_genome_file,
+                    "-l",
+                    "0",
+                    "--simplify-names",
+                ]
+                result = app_utility.bash_execute(command)
+                if not result["success"]:
+                    print(
+                        f"Error creating contigs DB for sample {sample_id}: {result['error']}"
+                    )
+                    exit(1)
+                genome_file = temp_genome_file
+
+            # Create contigs database for each genome
+            command = [
+                CONDA_PATH,
+                "run",
+                "-n",
+                CONDA_ENV,
+                "anvi-gen-contigs-database",
+                "-f",
+                genome_file,
+                "-o",
+                db_file_name,
+                "-n",
+                genome_id,
+                "--project-name",
+                ANVIO_PROJECT_NAME,
+            ]
+            result = app_utility.bash_execute(command)
+            if not result["success"]:
+                print(
+                    f"Error creating contigs DB for sample {sample_id}: {result['error']}"
+                )
+                exit(1)
+            if temp_genome_file and os.path.exists(temp_genome_file):
+                os.remove(temp_genome_file)
+
+            # Run HMMs on the contigs database
+            command = [
+                CONDA_PATH,
+                "run",
+                "-n",
+                CONDA_ENV,
+                "anvi-run-hmms",
+                "-c",
+                db_file_name,
+                "--num-threads",
+                "8",
+            ]
+            result = app_utility.bash_execute(command)
+            if not result["success"]:
+                print(f"Error running HMMs for sample {sample_id}: {result['error']}")
+                exit(1)
+
+            # Annotate genes with COGs
+            command = [
+                CONDA_PATH,
+                "run",
+                "-n",
+                CONDA_ENV,
+                "anvi-run-ncbi-cogs",
+                "-c",
+                db_file_name,
+                "--num-threads",
+                "8",
+            ]
+            result = app_utility.bash_execute(command)
+            if not result["success"]:
+                print(
+                    f"Error running Annotations for sample {sample_id}: {result['error']}"
+                )
+                exit(1)
+
+        print("\n✅ Anvi'o contigs databases created for all genomes.")
