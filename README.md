@@ -311,3 +311,9 @@ optional extras (pick what you use in your lab):
 [Single-cell 'Omics with anvi'o](https://anvio.org/tutorials/single-cell-genomics-workshop/)
 
 [An anvi'o tutorial with Trichodesmium genomes](https://anvio.org/tutorials/trichodesmium-tutorial/)
+
+## Credits
+
+### Himani Karunathilake
+
+### Vinura Mannapperuma
