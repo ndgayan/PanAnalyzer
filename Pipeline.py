@@ -24,7 +24,7 @@ SAMPLE_FORWARD_READS_POSTFIX = "R1_001.trim.fastq.gz"
 SAMPLE_REVERSE_READS_POSTFIX = "R2_001.trim.fastq.gz"
 
 ANVIO_PROJECT_NAME = "PanAnalyzer"
-ANVIO_GENOMES_DB = f"{ANVIO_PROJECT_NAME}-Genomes.db"
+ANVIO_GENOMES_DB = f"{ANVIO_PROJECT_NAME}-GENOMES.db"
 ANVIO_OUTPUT = "./OUTPUT/Anvio_Results"
 
 PIPE_SPADES = False
@@ -102,8 +102,10 @@ if __name__ == "__main__":
 
     if PIPE_ANVI_O:
         # Load reference genome information to the pan genome Analysis
-        app_utility.clean_output_directory(ANVIO_OUTPUT)
-        app_utility.clean_output_directory(TEMP_OUTPUT)
+
+        # app_utility.clean_output_directory(ANVIO_OUTPUT)
+        # app_utility.clean_output_directory(TEMP_OUTPUT)
+
         # Validate Reference files
         try:
             # Get all files in the Reference directory
@@ -235,3 +237,91 @@ if __name__ == "__main__":
                 exit(1)
 
         print("\n✅ Anvi'o contigs databases created for all genomes.")
+
+        # Create external-genomes.txt file
+        try:
+            external_genomes_file = app_utility.generate_external_genomes_file(
+                combined_genomes=combined_genomes,
+                anvio_output_dir=ANVIO_OUTPUT,
+                output_file="external-genomes.txt",
+            )
+            print(f"\nExternal genomes file created: {external_genomes_file}")
+
+        except FileNotFoundError:
+            print("\n⚠️  PROCESS STOPPED: Cannot proceed without all database files")
+            exit(1)
+
+        # Create genome storage
+        command = [
+            CONDA_PATH,
+            "run",
+            "-n",
+            CONDA_ENV,
+            "anvi-gen-genomes-storage",
+            "-e",
+            external_genomes_file,
+            "-o",
+            os.path.join(ANVIO_OUTPUT, ANVIO_GENOMES_DB),
+        ]
+        result = app_utility.bash_execute(command)
+        if not result["success"]:
+            print(f"Error creating genomes storage: {result['error']}")
+            exit(1)
+
+        print(f"\n✅ Genomes storage database created: {ANVIO_GENOMES_DB}")
+
+        # Run Pan Genome Analysis
+        command = [
+            CONDA_PATH,
+            "run",
+            "-n",
+            CONDA_ENV,
+            "anvi-pan-genome",
+            "-g",
+            os.path.join(ANVIO_OUTPUT, ANVIO_GENOMES_DB),
+            "-n",
+            ANVIO_PROJECT_NAME,
+            "-o",
+            os.path.join(ANVIO_OUTPUT, "PAN"),
+            "--num-threads",
+            "8",
+            "--minbit",
+            "0.5",  # Minimum alignment coverage (0.5 = 50%, good default)
+            "--mcl-inflation",
+            "10",
+            "--use-ncbi-blast",  # Use NCBI BLAST instead of DIAMOND (more sensitive, slower)
+        ]
+        result = app_utility.bash_execute(command)
+        if not result["success"]:
+            print(f"Error running pangenome analysis: {result['error']}")
+            exit(1)
+
+        print("\n✅ Pangenome analysis completed successfully.")
+
+        # Compute ANI (Average Nucleotide Identity)
+
+        command = [
+            CONDA_PATH,
+            "run",
+            "-n",
+            CONDA_ENV,
+            "anvi-compute-genome-similarity",
+            "--external-genomes",
+            external_genomes_file,
+            "--program",
+            "pyANI",
+            "--output-dir",
+            os.path.join(ANVIO_OUTPUT, "ANI"),
+            "--num-threads",
+            "8",
+            "--pan-db",
+            os.path.join(ANVIO_OUTPUT, "PAN", f"{ANVIO_PROJECT_NAME}-PAN.db"),
+        ]
+        result = app_utility.bash_execute(command)
+        if not result["success"]:
+            print(f"Error computing genome similarity: {result['error']}")
+            exit(1)
+
+        print("\n✅ Genome similarity analysis completed successfully.")
+
+        pass

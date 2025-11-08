@@ -345,6 +345,64 @@ def validate_spades_output(samples_dict, spades_output_dir, filter_type="Sample"
     return contigs_dict
 
 
+# Create external-genomes.txt file.
+
+
+def generate_external_genomes_file(
+    combined_genomes, anvio_output_dir, output_file="external-genomes.txt"
+):
+    """
+    Generate external-genomes.txt file for Anvi'o pangenomics workflow.
+
+    Args:
+        combined_genomes (dict): Dictionary with genome IDs as keys and file paths as values
+        anvio_output_dir (str): Directory containing Anvi'o .db files
+        output_file (str): Output filename (default: "external-genomes.txt")
+
+    Returns:
+        str: Path to the generated external-genomes.txt file
+
+    Raises:
+        FileNotFoundError: If any .db file is missing
+    """
+    missing_dbs = []
+    external_genomes_lines = ["name\tcontigs_db_path"]
+
+    print("\nGenerating external-genomes.txt file...")
+    print(f"Checking {len(combined_genomes)} genomes for .db files...")
+
+    for genome_id in combined_genomes.keys():
+        db_file = os.path.join(anvio_output_dir, f"{genome_id}.db")
+
+        if os.path.exists(db_file):
+            # Get absolute path
+            db_file_abs = os.path.abspath(db_file)
+            external_genomes_lines.append(f"{genome_id}\t{db_file_abs}")
+            print(f"  ✓ Found: {genome_id}.db")
+        else:
+            missing_dbs.append(f"  - {genome_id}: Missing database file ({db_file})")
+            print(f"  ✗ Missing: {genome_id}.db")
+
+    # Check if any databases are missing
+    if missing_dbs:
+        error_msg = (
+            f"\n❌ VALIDATION FAILED: Missing {len(missing_dbs)} database file(s):\n"
+            + "\n".join(missing_dbs)
+        )
+        print(error_msg)
+        raise FileNotFoundError(error_msg)
+
+    # Write the external-genomes.txt file
+    output_path = os.path.join(anvio_output_dir, output_file)
+    with open(output_path, "w") as f:
+        f.write("\n".join(external_genomes_lines))
+
+    print(f"\n✓ Successfully generated: {output_path}")
+    print(f"  Total genomes: {len(combined_genomes)}")
+
+    return output_path
+
+
 ########################################################################################################################
 # Bash Command Execution Method
 ########################################################################################################################

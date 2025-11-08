@@ -1,5 +1,8 @@
-DATA/
-OUTPUT/
+DATA/Samples/
+OUTPUT/Anvio_Results
+OUTPUT/SPAdes_Results
+OUTPUT/TEMP
 
 __pycache__/
+
 .env
