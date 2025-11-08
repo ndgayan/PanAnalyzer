@@ -28,7 +28,7 @@ ANVIO_GENOMES_DB = f"{ANVIO_PROJECT_NAME}-GENOMES.db"
 ANVIO_OUTPUT = "./OUTPUT/Anvio_Results"
 
 PIPE_SPADES = False
-PIPE_ANVI_O = True
+PIPE_ANVI_O = False
 
 ########################################################################################################################
 
@@ -36,34 +36,33 @@ if __name__ == "__main__":
     # Load sample information from Study-All.csv
     samples = app_utility.read_study_file(f"./DATA/{SAMPLES_PREFIX}")
     print(f"\nTotal samples: {len(samples)}")
+
+    # Validate Sample files (paired-end reads)
+    try:
+        # Get all files in the Samples directory
+        sample_files = app_utility.get_files_from_directory("./DATA/Samples")
+        print(f"\nTotal files in Samples directory: {len(sample_files)}")
+
+        # Validate that all samples have required forward and reverse read files
+        validated_samples = app_utility.validate_sample_files(
+            samples_dict=samples,
+            sample_files=sample_files,
+            forward_postfix=SAMPLE_FORWARD_READS_POSTFIX,
+            reverse_postfix=SAMPLE_REVERSE_READS_POSTFIX,
+            filter_type="Sample",
+        )
+        print(f"\nValidated samples with required files: {len(validated_samples)}")
+
+    except FileNotFoundError:
+        print("\n⚠️  PROCESS STOPPED: Cannot proceed without all required sample files")
+        exit(1)
+
     ####################################################################################################################
     # STEP 1 : SPeads Assembly
     ####################################################################################################################
     if PIPE_SPADES:
         # Clean the output directory before starting
         app_utility.clean_output_directory(SPADES_OUTPUT)
-
-        # Validate Sample files (paired-end reads)
-        try:
-            # Get all files in the Samples directory
-            sample_files = app_utility.get_files_from_directory("./DATA/Samples")
-            print(f"\nTotal files in Samples directory: {len(sample_files)}")
-
-            # Validate that all samples have required forward and reverse read files
-            validated_samples = app_utility.validate_sample_files(
-                samples_dict=samples,
-                sample_files=sample_files,
-                forward_postfix=SAMPLE_FORWARD_READS_POSTFIX,
-                reverse_postfix=SAMPLE_REVERSE_READS_POSTFIX,
-                filter_type="Sample",
-            )
-            print(f"\nValidated samples with required files: {len(validated_samples)}")
-
-        except FileNotFoundError:
-            print(
-                "\n⚠️  PROCESS STOPPED: Cannot proceed without all required sample files"
-            )
-            exit(1)
 
         for idx, (sample_id, sample_data) in enumerate(validated_samples.items(), 1):
             r1_file = sample_data["forward"]
@@ -73,6 +72,7 @@ if __name__ == "__main__":
                 f"Sample {idx}: {sample_id} - Running SPAdes assembly using:\n{r1_file}\n{r2_file}"
             )
 
+            # Run SPAdes assembly for the sample -> https://ablab.github.io/spades/getting-started.html
             command = [
                 CONDA_PATH,
                 "run",
@@ -97,14 +97,12 @@ if __name__ == "__main__":
         print("\n✅ SPAdes assembly completed for all samples.")
 
     ####################################################################################################################
-    # STEP 2 : Anvi'o Database Creation
+    # STEP 2 : Anvi'o Pipeline
     ####################################################################################################################
-
     if PIPE_ANVI_O:
-        # Load reference genome information to the pan genome Analysis
-
-        # app_utility.clean_output_directory(ANVIO_OUTPUT)
-        # app_utility.clean_output_directory(TEMP_OUTPUT)
+        # Clean the output directory before starting
+        app_utility.clean_output_directory(ANVIO_OUTPUT)
+        app_utility.clean_output_directory(TEMP_OUTPUT)
 
         # Validate Reference files
         try:
@@ -129,6 +127,7 @@ if __name__ == "__main__":
             )
             exit(1)
 
+        # Validate SPAdes output contig files
         try:
             validated_contigs = app_utility.validate_spades_output(
                 samples_dict=samples,
@@ -141,16 +140,18 @@ if __name__ == "__main__":
             )
             exit(1)
 
+        # Combine sample contigs and reference genomes
         combined_genomes = {}
         for sample_id, contig_path in validated_contigs.items():
             combined_genomes[sample_id] = contig_path
         for ref_id, ref_data in validated_references.items():
             combined_genomes[ref_id] = ref_data["file"]
 
+        # Create Anvi'o contigs databases for all genomes (samples + references)
         for genome_id, genome_file in combined_genomes.items():
             db_file_name = ANVIO_OUTPUT + f"/{genome_id}.db"
 
-            # NCBI Reference genomes need to be reformatted
+            # NCBI Reference genomes need to be reformatted -> https://anvio.org/help/main/programs/anvi-script-reformat-fasta/
             temp_genome_file = None
             if genome_file.endswith(REFERENCE_FILE_EXTENSION):
                 temp_genome_file = TEMP_OUTPUT + f"/{genome_id}.fna"
@@ -175,7 +176,7 @@ if __name__ == "__main__":
                     exit(1)
                 genome_file = temp_genome_file
 
-            # Create contigs database for each genome
+            # Create contigs database for the genome -> https://anvio.org/help/main/programs/anvi-gen-contigs-database/
             command = [
                 CONDA_PATH,
                 "run",
@@ -200,7 +201,7 @@ if __name__ == "__main__":
             if temp_genome_file and os.path.exists(temp_genome_file):
                 os.remove(temp_genome_file)
 
-            # Run HMMs on the contigs database
+            # Run HMMs on the contigs database -> https://anvio.org/help/7/programs/anvi-run-hmms/
             command = [
                 CONDA_PATH,
                 "run",
@@ -217,7 +218,7 @@ if __name__ == "__main__":
                 print(f"Error running HMMs for sample {sample_id}: {result['error']}")
                 exit(1)
 
-            # Annotate genes with COGs
+            # Annotate genes with COGs -> https://anvio.org/help/main/programs/anvi-run-ncbi-cogs/
             command = [
                 CONDA_PATH,
                 "run",
@@ -238,7 +239,7 @@ if __name__ == "__main__":
 
         print("\n✅ Anvi'o contigs databases created for all genomes.")
 
-        # Create external-genomes.txt file
+        # Create external-genomes.txt file.
         try:
             external_genomes_file = app_utility.generate_external_genomes_file(
                 combined_genomes=combined_genomes,
@@ -251,7 +252,7 @@ if __name__ == "__main__":
             print("\n⚠️  PROCESS STOPPED: Cannot proceed without all database files")
             exit(1)
 
-        # Create genome storage
+        # Create genome storage -> https://anvio.org/help/7/programs/anvi-gen-genomes-storage/
         command = [
             CONDA_PATH,
             "run",
@@ -270,7 +271,7 @@ if __name__ == "__main__":
 
         print(f"\n✅ Genomes storage database created: {ANVIO_GENOMES_DB}")
 
-        # Run Pan Genome Analysis
+        # Run Pan Genome Analysis -> https://anvio.org/help/main/programs/anvi-pan-genome/
         command = [
             CONDA_PATH,
             "run",
@@ -298,8 +299,7 @@ if __name__ == "__main__":
 
         print("\n✅ Pangenome analysis completed successfully.")
 
-        # Compute ANI (Average Nucleotide Identity)
-
+        # Compute ANI (Average Nucleotide Identity) -> https://anvio.org/help/8/programs/anvi-compute-genome-similarity/
         command = [
             CONDA_PATH,
             "run",
@@ -322,6 +322,6 @@ if __name__ == "__main__":
             print(f"Error computing genome similarity: {result['error']}")
             exit(1)
 
-        print("\n✅ Genome similarity analysis completed successfully.")
-
-        pass
+        print(
+            "\n✅ Genome similarity analysis completed successfully. Please find GenomeDB and PanDB in the Anvio_Results directory."
+        )
