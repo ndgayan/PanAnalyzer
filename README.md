@@ -203,16 +203,16 @@ PIPE_ANVI_O = False
 ## How to Run the Pipeline and Visualize Data
 
 **Step 1**:
-Add your forward reads and reverse reads samples (\*.fastq.gz) in the Samples directory in the DATA folder. E.g., file pairs are **NP1**_S1_**R1_001.trim.fastq.gz** (forward) and **NP1**_S1_**R2_001.trim.fastq.gz** (reverse). Please note **NP1** prefix in the sample name or the ID and this must indicate in your **Study.csv** file. The **R1_001.trim.fastq.gz** if the forward read file generated from sequencing machine and the **R2_001.trim.fastq.gz** if the forward read file generated from sequencing machine. Make sure forward and reverse reads for each sample in the samples folder.
+Add your forward and reverse read samples (`*.fastq.gz`) to the `DATA/Samples` directory. Example pairs include `NP1_S1_R1_001.trim.fastq.gz` (forward) and `NP1_S1_R2_001.trim.fastq.gz` (reverse). Ensure the `NP1` prefix (or equivalent) matches the sample ID recorded in `Study.csv`, and confirm that both forward and reverse reads for every sample are present in the `Samples` folder.
 
 **Step 2**:
-Add reference genome(s) from NCBI. GenBank samples are high-quality reference samples. Please give appropriate short names for these reference files. Avoid special characters in the file names. (Including sample file names)
+Add reference genome(s) from NCBI. GenBank records provide high-quality references; give each reference file a concise name and avoid special characters in both reference and sample filenames.
 
 **Step 3**:
-Create a study CSV file in the DATA folder and add sample names to the file (see the original "Study.CSV" file example on GitHub). List of study files in the Study.CSV file used in the pipeline.
+Create `Study.csv` in the `DATA` folder and add your study samples (see the example file on GitHub). Each sample you intend to process must appear in `Study.csv` for the pipeline to include it.
 
 **Step 4**:
-The **`pipeline.py`** is the main entry point of the pipeline. Please update PanAnalyzer options (top of the `pipeline.py`) based on your system. Make sure `FastQC_Results`, `SPAdes_Results`, and `Anvio_Results` folders inside the OUTPUT folder before running the application.
+The **`pipeline.py`** script is the main entry point. Update the PanAnalyzer options (at the top of `pipeline.py`) to match your system. Make sure the `FastQC_Results`, `SPAdes_Results`, and `Anvio_Results` folders exist inside the `OUTPUT` directory before running the application.
 
 Below is the command to run the pipeline.
 
@@ -221,23 +221,23 @@ python3 pipeline.py
 ```
 
 **Step 5**:
-To visualize pan genome using Anvio's **anvi-display-pan** you must properly select the paths to the <Project_Name>-GENOMES.db SQLite database file and <Project_Name>-PAN.db SQLite database in side "PAN" folder in the Anvio_Results parent directory. Please copy the OUTPUT directory to different folder (Outside from the project folder) for later use. Please keep in mind properly keep track of these study folders. What you start a new pipeline, files in output folder cleared during the next pipeline run.
+To visualize the pangenome with anvi'o's `anvi-display-pan`, supply the paths to `<Project_Name>-GENOMES.db` and `<Project_Name>-PAN.db` (located in the `PAN` subfolder of `OUTPUT/Anvio_Results`). Copy the `OUTPUT` directory to a separate location for long-term storage; a new pipeline run will clear the contents of `OUTPUT`, so keep track of each study's results.
 
-Below is the command to launching wed server to create Anvi'o interactive web interface using provided **`server.sh`** bash script.
+Below is the command to launch the web server and create the anvi'o interactive web interface using the provided **`server.sh`** script.
 
 ```bash
 chmod +x server.sh  # You need to make the script file executable once.
 ./server.sh -p ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -g ./OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db -e GEM -P 8080
 ```
 
-- Access to the server by typing localhost:8080 (Change the port if you change it in the arguments)
+- Access the server at `http://localhost:8080` (adjust the port if you passed a different value).
 
 ![alt text](Resources/pan.png)
 
-- After analyzing results, close the ruining server by pressing CTRL + C in the terminal that server is running
+- After reviewing the results, stop the running server by pressing `Ctrl+C` in the terminal where it is active.
 
 **Step 6**:
-Use the Interactive Tree Of Life (iTOL) is an online tool for the display, annotation and management of phylogenetic and other trees. The \*.newick files are located at the OUTPUT/Anvio_Results/ANI directory.
+Use the Interactive Tree Of Life (iTOL), an online tool for displaying, annotating, and managing phylogenetic trees. The `*.newick` files are located in `OUTPUT/Anvio_Results/ANI`.
 
 Expected project layout before running the pipeline:
 
@@ -406,9 +406,9 @@ anvi-display-pan -p MY-PROJECT-PAN.db -g MY-GENOMES.db --server-only -P 8080
 
 In your browser, type `localhost:8080` to render the page. Finally, press Ctrl+C in the terminal to close the web server.
 
-- See the tutorials Analysis Tutorial to study the Pan.
+- Refer to the Analysis Tutorial section for guidance on interpreting the pangenome results.
 
-- The .newick file generated from the ANI process located at the ANI folder inside Anvio_Results folder. You can upload these files to the iTOL website to do moore visulizations.
+- The `.newick` files generated during the ANI process are located in the `ANI` folder inside `Anvio_Results`. Upload these files to the iTOL website to create more visualizations.
 
   1.  ANIb_alignment_coverage.newick: Tree based on the percentage of the genomes that aligned.
   2.  ANIb_full_percentage_identity.newick: Tree based on the nucleotide identity across the entire aligned region.
