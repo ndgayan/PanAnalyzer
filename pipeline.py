@@ -20,7 +20,7 @@ MEMORY = "8192"  # in MB
 CONDA_PATH = os.path.expanduser("~/miniconda3/bin/conda")
 CONDA_ENV = "GEM"
 
-SAMPLES_PREFIX = "Study-All.csv"  # Name of the study file
+SAMPLES_PREFIX = "Study-Small.csv"  # Name of the study file
 REFERENCE_FILE_EXTENSION = ".fna"
 
 SAMPLE_FORWARD_READS_POSTFIX = "R1_001.trim.fastq.gz"
@@ -31,8 +31,8 @@ ANVIO_GENOMES_DB = f"{ANVIO_PROJECT_NAME}-GENOMES.db"
 
 # What part of the study to run.
 PIPE_FASTQC = True
-PIPE_SPADES = False
-PIPE_ANVI_O = False
+PIPE_SPADES = True
+PIPE_ANVI_O = True
 
 ########################################################################################################################
 ########################################################################################################################
@@ -404,3 +404,7 @@ if __name__ == "__main__":
         print(
             "\n✅ Genome similarity analysis completed successfully. Please find GenomeDB and PanDB in the Anvio_Results directory."
         )
+
+    print(
+        "\n🎉 All selected pipeline steps completed successfully. Please use server.py script to run the pan genome web server and visualize the pan."
+    )

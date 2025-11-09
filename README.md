@@ -200,26 +200,51 @@ PIPE_SPADES = False
 PIPE_ANVI_O = False
 ```
 
-## How to Run the Pipeline
+## How to Run the Pipeline and Visualize Data
 
 **Step 1**:
-Add your forward reads and reverse reads samples (\*.fastq.gz) in the Samples directory in the DATA folder. E.g., file pairs are NP1_S1_R1_001.trim.fastq.gz (forward) and NP1_S1_R2_001.trim.fastq.gz (reverse).
+Add your forward reads and reverse reads samples (\*.fastq.gz) in the Samples directory in the DATA folder. E.g., file pairs are **NP1**_S1_**R1_001.trim.fastq.gz** (forward) and **NP1**_S1_**R2_001.trim.fastq.gz** (reverse). Please note **NP1** prefix in the sample name or the ID and this must indicate in your **Study.csv** file. The **R1_001.trim.fastq.gz** if the forward read file generated from sequencing machine and the **R2_001.trim.fastq.gz** if the forward read file generated from sequencing machine. Make sure forward and reverse reads for each sample in the samples folder.
 
 **Step 2**:
-Add reference genome(s) from NCBI. Try to do the study with GenBank samples. These samples are high-quality reference samples. Give appropriate short names. Avoid special characters in the file names.
+Add reference genome(s) from NCBI. GenBank samples are high-quality reference samples. Please give appropriate short names for these reference files. Avoid special characters in the file names. (Including sample file names)
 
 **Step 3**:
-Create a study CSV file in the DATA folder and add sample names to the file (see the original example on GitHub). These files are used for the study.
+Create a study CSV file in the DATA folder and add sample names to the file (see the original "Study.CSV" file example on GitHub). List of study files in the Study.CSV file used in the pipeline.
 
 **Step 4**:
-The `pipeline.py` is the main entry point of the pipeline. Please update PanAnalyzer options (top of the `pipeline.py`) based on your system. You must manually create `FastQC_Results`, `SPAdes_Results`, and `Anvio_Results` folders inside the OUTPUT folder before running the application (if not available).
+The **`pipeline.py`** is the main entry point of the pipeline. Please update PanAnalyzer options (top of the `pipeline.py`) based on your system. Make sure `FastQC_Results`, `SPAdes_Results`, and `Anvio_Results` folders inside the OUTPUT folder before running the application.
+
+Below is the command to run the pipeline.
+
+```bash
+python3 pipeline.py
+```
+
+**Step 5**:
+To visualize pan genome using Anvio's **anvi-display-pan** you must properly select the paths to the <Project_Name>-GENOMES.db SQLite database file and <Project_Name>-PAN.db SQLite database in side "PAN" folder in the Anvio_Results parent directory. Please copy the OUTPUT directory to different folder (Outside from the project folder) for later use. Please keep in mind properly keep track of these study folders. What you start a new pipeline, files in output folder cleared during the next pipeline run.
+
+Below is the command to launching wed server to create Anvi'o interactive web interface using provided **`server.sh`** bash script.
+
+```bash
+chmod +x server.sh  # You need to make the script file executable once.
+./server.sh -p ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -g ./OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db -e GEM -P 8080
+```
+
+- Access to the server by typing localhost:8080 (Change the port if you change it in the arguments)
+
+![alt text](pan.png)
+
+- After analyzing results, close the ruining server by pressing CTRL + C in the terminal that server is running
+
+**Step 6**:
+To
 
 Expected project layout before running the pipeline:
 
 ```
 PanAnalyzer/
 ├── DATA/
-│   ├── <study>.csv (See the sample)
+│   ├── <study>.csv (3 columns CSV file. See the sample)
 │   ├── Samples/
 │   │   └── <sample fastq.gz files>
 │   └── Ref/
@@ -239,7 +264,7 @@ Run the Python file.
 python3 pipeline.py
 ```
 
-## How To Analyze Results
+## Key Tools Used in the **pipeline.py** (Basic form).
 
 ### Study Preparation
 
@@ -355,14 +380,6 @@ The `external-genomes.txt` file has the paths to individual `contigs.db` files c
 anvi-gen-genomes-storage -e external-genomes.txt -o MY-GENOMES.db
 ```
 
-#### Run the pan genome
-
-This will run the genome analysis using the genome storage.
-
-```bash
-anvi-pan-genome -g MY-GENOMES.db -n MY-PROJECT --minbit 0.5 --mcl-inflation 10 --use-ncbi-blast --num-threads 8
-```
-
 #### Compute ANI
 
 Compute ANI (Average Nucleotide Identity). This will generate the `*.newick` files to analyze on the [iTOL](https://itol.embl.de) website.
@@ -371,9 +388,13 @@ Compute ANI (Average Nucleotide Identity). This will generate the `*.newick` fil
 anvi-compute-genome-similarity --external-genomes external-genomes.txt --program pyANI --output-dir ANI_Results --pan-db MY-PROJECT/MY-PROJECT-PAN.db
 ```
 
-Watch this video for more information:
+#### Run the pan genome
 
-[![Anvio Pangenome Analysis Tutorial](https://img.youtube.com/vi/iUguH8ZHGU8/0.jpg)](https://youtu.be/iUguH8ZHGU8?si=etV0j2mtv8emrgLI)
+This will run the genome analysis using the genome storage.
+
+```bash
+anvi-pan-genome -g MY-GENOMES.db -n MY-PROJECT --minbit 0.5 --mcl-inflation 10 --use-ncbi-blast --num-threads 8
+```
 
 #### Web Application to Render Genome Pan
 
@@ -382,6 +403,14 @@ anvi-display-pan -p MY-PROJECT-PAN.db -g MY-GENOMES.db --server-only -P 8080
 ```
 
 In your browser, type `localhost:8080` to render the page. Finally, press Ctrl+C in the terminal to close the web server.
+
+- See the tutorials Analysis Tutorial to study the Pan.
+
+- The .newick file generated from the ANI process located at the ANI folder inside Anvio_Results folder. You can upload these files to the iTOL website to do moore visulizations.
+
+  - Watch this video for more information:
+
+    [![Anvio Pangenome Analysis Tutorial](https://img.youtube.com/vi/iUguH8ZHGU8/0.jpg)](https://youtu.be/iUguH8ZHGU8?si=etV0j2mtv8emrgLI)
 
 ## Analysis Tutorial
 
@@ -399,6 +428,6 @@ In your browser, type `localhost:8080` to render the page. Finally, press Ctrl+C
 
 ## Credits
 
-### Himani Karunathilake
+#### Himani Karunathilake
 
-### Vinura Mannapperuma
+#### Vinura Mannapperuma
