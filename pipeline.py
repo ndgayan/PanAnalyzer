@@ -1,15 +1,21 @@
+########################################################################################################################
 # PanAnalyzer - A tool to analyze and visualize pan-genome data
-# Developed by Gayan Nagoda
-# Copyright (C) 2025 Gayan Nagoda
-
+# Author: Gayan Nagoda
+# Date: 2025-11-08
+########################################################################################################################
 
 import os
 
 import utility as app_utility
 
 ########################################################################################################################
+########################################################################################################################
 # Options
 ########################################################################################################################
+########################################################################################################################
+
+THREADS = "8"
+MEMORY = "8192"  # in MB
 
 CONDA_PATH = os.path.expanduser("~/miniconda3/bin/conda")
 CONDA_ENV = "GEM"
@@ -17,20 +23,27 @@ CONDA_ENV = "GEM"
 SAMPLES_PREFIX = "Study-All.csv"  # Name of the study file
 REFERENCE_FILE_EXTENSION = ".fna"
 
-TEMP_OUTPUT = "./OUTPUT/TEMP"
-
-SPADES_OUTPUT = "./OUTPUT/SPAdes_Results"
 SAMPLE_FORWARD_READS_POSTFIX = "R1_001.trim.fastq.gz"
 SAMPLE_REVERSE_READS_POSTFIX = "R2_001.trim.fastq.gz"
 
 ANVIO_PROJECT_NAME = "PanAnalyzer"
 ANVIO_GENOMES_DB = f"{ANVIO_PROJECT_NAME}-GENOMES.db"
-ANVIO_OUTPUT = "./OUTPUT/Anvio_Results"
 
+# What part of the study to run.
+PIPE_FASTQC = True
 PIPE_SPADES = False
 PIPE_ANVI_O = False
 
 ########################################################################################################################
+########################################################################################################################
+########################################################################################################################
+
+# STOP: Do not change these output directory paths. Create them if they do not exist.
+TEMP_OUTPUT = "./OUTPUT/TEMP"
+SPADES_OUTPUT = "./OUTPUT/SPAdes_Results"
+FASTQC_Results = "./OUTPUT/FastQC_Results"
+ANVIO_OUTPUT = "./OUTPUT/Anvio_Results"
+
 
 if __name__ == "__main__":
     # Load sample information from Study-All.csv
@@ -56,6 +69,68 @@ if __name__ == "__main__":
     except FileNotFoundError:
         print("\n⚠️  PROCESS STOPPED: Cannot proceed without all required sample files")
         exit(1)
+
+    ####################################################################################################################
+    # STEP 0 : FastQC Quality Check (Optional)
+    ####################################################################################################################
+    if PIPE_FASTQC:
+        # Clean the output directory before starting
+        app_utility.clean_output_directory(FASTQC_Results)
+
+        for idx, (sample_id, sample_data) in enumerate(validated_samples.items(), 1):
+            r1_file = sample_data["forward"]
+            r2_file = sample_data["reverse"]
+
+            for sample_file in [r1_file, r2_file]:
+                # Run FastQC for the sample -> https://www.bioinformatics.babraham.ac.uk/projects/fastqc/
+                command = [
+                    CONDA_PATH,
+                    "run",
+                    "-n",
+                    CONDA_ENV,
+                    "fastqc",
+                    sample_file,
+                    "-o",
+                    FASTQC_Results,
+                    "--threads",
+                    THREADS,
+                    "--memory",
+                    MEMORY,
+                ]
+                result = app_utility.bash_execute(command)
+                print(f"Success: {result['success']}")
+                if not result["success"]:
+                    print(
+                        f"Error running FastQC for sample {sample_file}: {result['error']}"
+                    )
+                    exit(1)
+                else:
+                    print(
+                        f"Sample {idx}: {sample_id} - FastQC completed for {sample_file}"
+                    )
+
+        print("\n✅ FastQC quality check completed for all samples.")
+
+        # Open-source tool to aggregate bioinformatic analyses results into a single report.
+        # Run MultiQC for the sample -> https://seqera.io/multiqc/
+        command = [
+            CONDA_PATH,
+            "run",
+            "-n",
+            CONDA_ENV,
+            "multiqc",
+            FASTQC_Results,
+            "-o",
+            os.path.join(FASTQC_Results, "MultiQC_Results"),
+            "--clean-up",
+        ]
+        result = app_utility.bash_execute(command)
+        print(f"Success: {result['success']}")
+        if not result["success"]:
+            print(f"Error running MultiQC for FastQC Samples: {result['error']}")
+            exit(1)
+
+        print("\n✅ MultiQC report generated for FastQC results.")
 
     ####################################################################################################################
     # STEP 1 : SPeads Assembly
@@ -93,6 +168,8 @@ if __name__ == "__main__":
             if not result["success"]:
                 print(f"Error running SPAdes for sample {sample_id}: {result['error']}")
                 exit(1)
+            else:
+                print(f"Sample {idx}: {sample_id} - SPAdes assembly completed.")
 
         print("\n✅ SPAdes assembly completed for all samples.")
 
@@ -211,7 +288,7 @@ if __name__ == "__main__":
                 "-c",
                 db_file_name,
                 "--num-threads",
-                "8",
+                THREADS,
             ]
             result = app_utility.bash_execute(command)
             if not result["success"]:
@@ -228,7 +305,7 @@ if __name__ == "__main__":
                 "-c",
                 db_file_name,
                 "--num-threads",
-                "8",
+                THREADS,
             ]
             result = app_utility.bash_execute(command)
             if not result["success"]:
@@ -236,6 +313,8 @@ if __name__ == "__main__":
                     f"Error running Annotations for sample {sample_id}: {result['error']}"
                 )
                 exit(1)
+
+            print(f"Contigs database created for genome: {genome_id}")
 
         print("\n✅ Anvi'o contigs databases created for all genomes.")
 
@@ -285,7 +364,7 @@ if __name__ == "__main__":
             "-o",
             os.path.join(ANVIO_OUTPUT, "PAN"),
             "--num-threads",
-            "8",
+            THREADS,
             "--minbit",
             "0.5",  # Minimum alignment coverage (0.5 = 50%, good default)
             "--mcl-inflation",
@@ -313,7 +392,7 @@ if __name__ == "__main__":
             "--output-dir",
             os.path.join(ANVIO_OUTPUT, "ANI"),
             "--num-threads",
-            "8",
+            THREADS,
             "--pan-db",
             os.path.join(ANVIO_OUTPUT, "PAN", f"{ANVIO_PROJECT_NAME}-PAN.db"),
         ]

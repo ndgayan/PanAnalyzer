@@ -24,7 +24,7 @@ The true power of PanAnalyzer is realized in the final visualization. Anvio's in
 
 ## The Pipeline Diagram
 
-![alt text](image.png)
+![alt text](diagram.png)
 
 ## Environment Setup
 
@@ -36,19 +36,19 @@ Below are the steps to set up using Conda environment manager on Linux (Debian b
 # Create a folder in the user's home directory.
 mkdir -p ~/miniconda3
 
-# Download Mini Conda (Mini Conda is a reduced package and helps you to save disk space.)
+# Download Miniconda (Miniconda is a reduced package and helps you save disk space.)
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda3/miniconda.sh
 
-# Setup Conda
+# Set up Conda
 bash ~/miniconda3/miniconda.sh -b -u -p ~/miniconda3
 
 # Remove setup files.
 rm ~/miniconda3/miniconda.sh
 
-# Add conda path to the .bashrc file.
+# Add Conda path to the .bashrc file.
 nano ~/.bashrc # Insert at bottom of the file -> export PATH="~/miniconda3/condabin:$PATH"
 
-# Close terminal and re-open a new terminal to refresh.
+# Close terminal and reopen a new terminal to refresh.
 # Initialize Conda
 conda init
 ```
@@ -83,19 +83,19 @@ If you need to remove the environment.
 # Deactivate Conda environment -> (GEM) user_name@pc_name$ _ to (base) user_name@pc_name$ _ or user_name@pc_name$ _.
 conda deactivate
 
-# In case you need to delete the environment. (For recreation if something is not working)
+# In case you need to delete the environment (for recreation if something is not working).
 conda env remove -n GEM
 ```
 
 ### Install Anvio
 
-Please select the Linux setup instructions. You can directly install Anvio-8 from the below command. Please check the updated command is available in [Anvio's website](https://anvio.org/install/linux/stable/) for version compatibility.
+Please select the Linux setup instructions. You can directly install Anvio 8 from the command below. Please check that the updated command is available on [Anvio's website](https://anvio.org/install/linux/stable/) for version compatibility.
 
 ```bash
-# Activate Conda environment (Previously created)
-conda activate GEM  # If Conda environment already not activated.
+# Activate Conda environment (previously created)
+conda activate GEM  # If Conda environment is not already activated.
 
-# Setup required packages
+# Set up required packages
 conda install -y -c conda-forge -c bioconda python=3.10 \
     sqlite=3.46 prodigal idba mcl muscle=3.8.1551 famsa hmmer diamond \
     blast megahit spades bowtie2 bwa graphviz "samtools>=1.9" \
@@ -103,13 +103,13 @@ conda install -y -c conda-forge -c bioconda python=3.10 \
     r-optparse r-stringi r-magrittr bioconductor-qvalue meme ghostscript \
     nodejs=20.12.2
 
-# Download pre-compiled binaries of Anvio package from GitHub.
+# Download precompiled binaries of Anvio package from GitHub.
 curl -L https://github.com/merenlab/anvio/releases/download/v8/anvio-8.tar.gz --output anvio-8.tar.gz
 
-# Setup downloaded package using PIP.
+# Set up downloaded package using pip.
 pip install anvio-8.tar.gz
 
-# Remove downloaded setup file
+# Remove downloaded setup file.
 rm anvio-8.tar.gz
 ```
 
@@ -126,11 +126,11 @@ conda activate GEM  # If Conda environment is not already activated.
 # Install FastQC from BioConda channel
 conda install -c bioconda fastqc
 
-# Install MultiQC for combining FastQC reports using PIP.
+# Install MultiQC for combining FastQC reports using pip.
 pip install multiqc
 ```
 
-### Setup Anvio Environment
+### Set Up Anvio Environment
 
 Before running anything, you need to set up the required genome reference databases in the Conda environment.
 
@@ -138,7 +138,7 @@ Before running anything, you need to set up the required genome reference databa
 # Anvio's ANI process needs a lower version of matplotlib at the time of writing.
 pip install matplotlib==3.7.3
 
-# Setup NCBI COGs databases.
+# Set up NCBI COGs databases.
 anvi-setup-ncbi-cogs --num-threads 8
    #COG version ..................................: COG20
    #COG data source ..............................: The anvi'o default.
@@ -149,9 +149,9 @@ anvi-setup-ncbi-cogs --num-threads 8
 anvi-setup-scg-taxonomy --num-threads 8
 ```
 
-### Setup SPAdes
+### Set Up SPAdes
 
-You can install SPAdes for genome assembly python application to the current activated Conda environment.
+You can install SPAdes for genome assembly Python application to the currently activated Conda environment.
 
 ```bash
 # Activate Conda environment
@@ -170,50 +170,76 @@ spades.py --test --careful && rm -rf spades_test
 Below are the PanAnalyzer options.
 
 ```py
+# Number of threads and Memory allocation for tools.
+THREADS = "8"
+MEMORY = "8192"  # in MB
+
 # Path to Conda installation
 CONDA_PATH = os.path.expanduser("~/miniconda3/bin/conda")
 
 # Your Conda environment name
 CONDA_ENV = "GEM"
 
-# Sample selection used in the study (See the sample in the project and use as a template)
+# Sample selection used in the study (see the sample in the project and use as a template)
 SAMPLES_PREFIX = "Study-All.csv"  # Name of the study file
+
 # GenBank reference file extensions
 REFERENCE_FILE_EXTENSION = ".fna"
-
-TEMP_OUTPUT = "./OUTPUT/TEMP"
-
-SPADES_OUTPUT = "./OUTPUT/SPAdes_Results"
 
 # Genome samples postfix of forward and reverse reads.
 SAMPLE_FORWARD_READS_POSTFIX = "R1_001.trim.fastq.gz"
 SAMPLE_REVERSE_READS_POSTFIX = "R2_001.trim.fastq.gz"
 
-# Name of the Project
+# Name of the project
 ANVIO_PROJECT_NAME = "PanAnalyzer"
 
+
 ANVIO_GENOMES_DB = f"{ANVIO_PROJECT_NAME}-GENOMES.db"
+TEMP_OUTPUT = "./OUTPUT/TEMP"
+SPADES_OUTPUT = "./OUTPUT/SPAdes_Results"
 ANVIO_OUTPUT = "./OUTPUT/Anvio_Results"
 
-# What part of the study to run
-# You must run the pipeline in this order: FastQC -> SPAdes -> Anvio
-# If you need to run the current step with different parameters, you can disable the previous processed pipeline step(s) to avoid re-running the entire pipeline.
+
+# You must run the pipeline in this order first: FastQC (optional) -> SPAdes -> Anvio
+# If you need to run the SPAdes or Anvio step with different parameters, you can disable the previous or following processed pipeline step(s) that have already run to avoid re-running the entire pipeline or resetting result folders.
+
+PIPE_FASTQC = True
 PIPE_SPADES = False
 PIPE_ANVI_O = False
+```
+
+## How to Run the Pipeline
+
+**Step 1**:
+Add your forward reads and reverse reads samples (\*.fastq.gz) in the Samples directory in the DATA folder. E.g., file pairs are NP1_S1_R1_001.trim.fastq.gz (forward) and NP1_S1_R2_001.trim.fastq.gz (reverse).
+
+**Step 2**:
+Add reference genome(s) from NCBI. Try to do the study with GenBank samples. These samples are high-quality reference samples. Give appropriate short names. Avoid special characters in the file names.
+
+**Step 3**:
+Create a study CSV file in the DATA folder and add sample names to the file (see the original example on GitHub). These files are used for the study.
+
+**Step 4**:
+The `pipeline.py` is the main entry point of the pipeline. Please update PanAnalyzer options (top of the `pipeline.py`) based on your system. You must manually create `FastQC_Results`, `SPAdes_Results`, and `Anvio_Results` folders inside the OUTPUT folder before running the application (if not available).
+
+Run the Python file
+
+```bash
+python3 pipeline.py
 ```
 
 ## How To Analyze Results
 
 ### Study Preparation
 
-We need to verify the quality before assembly. We use "fastqc" for quality check.
+We need to verify the quality before assembly. We use FastQC for quality checks.
 
 1. Create required folders
 
    ```bash
    # Quality check
    fastqc --threads 8 --memory 16G NP1_S1_R1_001.trim.fastq.gz NP1_S1_R2_001.trim.fastq.gz
-   # Create a summary report using multiqc
+   # Create a summary report using MultiQC
    multiqc .
    ```
 
@@ -224,32 +250,50 @@ Look for:
 - Sequence length distribution: consistent (e.g. 150 bp).
 - Paired files: same number of reads (R1 = R2 count).
 
-### How to interpret MultiQC Report:
+### How to interpret MultiQC Report (OUTPUT/FastQC_Results/MultiQC_Results):
+
+Below is the sample command to execute the tool.
+
+```bash
+fastqc NP1_S1_R1_001.trim.fastq -o FastQC_Results
+```
+
+Finally, you can aggregate all reports in the FastQC_Results using:
+
+```bash
+multiqc FastQC_Results -o FastQC_Results/MultiQC_Results
+```
+
+After the process, aggregated report HTML files will be created in the `FastQC_Results/MultiQC_Results` folder. The HTML file name is `multiqc_report.html`. Double-click to open it in the browser. Use this report to identify bad samples and analyze them more using the individual sample HTML files.
+
+Watch this video for more information:
+
+[![MultiQC Tutorial](https://img.youtube.com/vi/qPbIlO_KWN0/0.jpg)](https://www.youtube.com/watch?v=qPbIlO_KWN0)
 
 **Duplicates** = reads with identical sequences appearing multiple times. Can arise from PCR amplification bias or low library complexity. For short-read Illumina data, some duplication (10–20%) is normal, especially with:
 
-- high coverage,
-- small genomes,
-- targeted sequencing.
+- High coverage
+- Small genomes
+- Targeted sequencing
 
 **GC (GC content)** = proportion of guanine (G) and cytosine (C) bases in the reads. Different organisms have characteristic GC content. Deviations from expected GC content may indicate contamination or biases in library preparation.
 
-- Each organism has a typical GC% (e.g., E. coli ≈ 50%, Staphylococcus ≈ 33%).
+- Each organism has a typical GC% (e.g., _E. coli_ ≈ 50%, _Staphylococcus_ ≈ 33%).
 - Large deviations from the expected GC% can hint at:
-  - contamination,
-  - mixed populations,
-  - sequencing artifacts.
+  - Contamination
+  - Mixed populations
+  - Sequencing artifacts
 
 **Seqs (Sequences)** = total number of reads in the dataset. High read counts generally improve assembly quality and coverage, but excessively high counts may indicate over-sequencing or PCR duplicates.
 
-- More reads = better coverage and assembly quality. (Generally, aim for millions of reads.)
+- More reads = better coverage and assembly quality (generally, aim for millions of reads).
 - Excessively high read counts may indicate over-sequencing or PCR duplicates.
 - R1 and R2 counts match — excellent! That means no read-pair loss during trimming.
 
 **FastQC Mean Quality Scores** = average quality score across all bases in the reads. Higher scores indicate better base-calling accuracy. Scores above Q30 are considered high quality.
 
 - Mean quality scores above Q30 are excellent.
-- Larger than 30 has ≤ 0.1% error rate and the quality is excellent.
+- Greater than 30 has ≤ 0.1% error rate and the quality is excellent.
 - 20-30 has 0.1-0.3% error rate and the quality is good.
 - 20-25 has 0.3-1% error rate and the quality is acceptable.
 - < 20 has > 1% error rate and the quality is poor.
@@ -258,45 +302,77 @@ Look for:
 
 - Q > 30 is excellent.
 - Q 20-30 is good.
-- Q 10-20 is Bad.
+- Q 10-20 is bad.
 
-### SPAdes Assemble
+### SPAdes Assembly
 
-SPAdes is a versatile toolkit designed for assembly and analysis of sequencing data. SPAdes is primarily developed for Illumina sequencing data, but can be used for IonTorrent as well. Most of SPAdes pipelines support hybrid mode, i.e. allow using long reads (PacBio and Oxford Nanopore) as a supplementary data.
+SPAdes is a versatile toolkit designed for assembly and analysis of sequencing data. SPAdes is primarily developed for Illumina sequencing data but can be used for IonTorrent as well. Most SPAdes pipelines support hybrid mode, i.e., allow using long reads (PacBio and Oxford Nanopore) as supplementary data.
 
-SPAdes package contains assembly pipelines for isolated and single-cell bacterial, as well as metagenomic and transcriptomic data. Additional modes allow to discover bacterial plasmids and RNA viruses, as well as perform HMM-guided assembly. Besides, SPAdes package includes supplementary tools for efficient k-mer counting and k-mer-based read filtering, assembly graph construction and simplification, sequence-to-graph alignment and metagenomic binning refinement.
+The SPAdes package contains assembly pipelines for isolated and single-cell bacterial, as well as metagenomic and transcriptomic data. Additional modes allow discovery of bacterial plasmids and RNA viruses, as well as performing HMM-guided assembly. Besides, the SPAdes package includes supplementary tools for efficient k-mer counting and k-mer-based read filtering, assembly graph construction and simplification, sequence-to-graph alignment, and metagenomic binning refinement.
 
 #### Assemble with SPAdes Sample
 
-spades.py \
- -1 NP1_S1_R1_001.trim.fastq \
- -2 NP1_S1_R2_001.trim.fastq \
- -o NP1_spades -t 16 -m 64
-
-assembly will be at:
-NP1_spades/contigs.fasta
-
-##### Run the spades.sh in the project
-
-Run assembly and analysis of sequencing data of all samples.
-
 ```bash
-chmod +x spades.sh
-./spades.sh
+spades.py -1 NP1_S1_R1_001.trim.fastq -2 NP1_S1_R2_001.trim.fastq -o NP1_spades -t 16 -m 64
 ```
 
-### Anvi'o contigs database creation
+Assembly will be at:
 
-Make an Anvi'o contigs database  
+- NP1_spades/contigs.fasta
+
+### Anvi'o Contigs Database Creation
+
+You can download reference files from the National Center for Biotechnology Information (NCBI). Download GenBank only -> Genome sequences (FASTA) ZIP file for the reference. After downloading, you must extract and rename to a simpler name (see the reference samples).
+
+Example: [Veillonella montpellierensis](https://www.ncbi.nlm.nih.gov/datasets/genome/GCF_947090115.1/)
+
+#### Make an Anvi'o contigs database for each sample
+
+```bash
 anvi-gen-contigs-database -f NP1_spades/contigs.fasta -o NP1-contigs.db -n "NP1"
 
-Run HMMs (and optional annotations)
+# Run HMMs (optional annotations)
 anvi-run-hmms -c NP1-contigs.db
 
-optional extras (pick what you use in your lab):
+# Annotate genes with COGs
+anvi-run-ncbi-cogs -c NP1-contigs.db
+```
 
-- anvi-run-kegg-kofams -c NP1-contigs.db
-- anvi-run-ncbi-cogs -c NP1-contigs.db
+#### Collect individual sample genome databases and add to the genome storage
+
+The `external-genomes.txt` file has the paths to individual `contigs.db` files created by the Anvio process.
+
+```bash
+anvi-gen-genomes-storage -e external-genomes.txt -o MY-GENOMES.db
+```
+
+#### Run the pan genome
+
+This will run the genome analysis using the genome storage.
+
+```bash
+anvi-pan-genome -g MY-GENOMES.db -n MY-PROJECT --minbit 0.5 --mcl-inflation 10 --use-ncbi-blast --num-threads 8
+```
+
+#### Compute ANI
+
+Compute ANI (Average Nucleotide Identity). This will generate the `*.newick` files to analyze on the [iTOL](https://itol.embl.de) website.
+
+```bash
+anvi-compute-genome-similarity --external-genomes external-genomes.txt --program pyANI --output-dir ANI_Results --pan-db MY-PROJECT/MY-PROJECT-PAN.db
+```
+
+Watch this video for more information:
+
+[![Anvio Pangenome Analysis Tutorial](https://img.youtube.com/vi/iUguH8ZHGU8/0.jpg)](https://youtu.be/iUguH8ZHGU8?si=etV0j2mtv8emrgLI)
+
+#### Web Application to Render Genome Pan
+
+```bash
+anvi-display-pan -p MY-PROJECT-PAN.db -g MY-GENOMES.db --server-only -P 8080
+```
+
+In your browser, type `localhost:8080` to render the page. Finally, press Ctrl+C in the terminal to close the web server.
 
 ## Analysis Tutorial
 
