@@ -177,10 +177,10 @@ MEMORY = "8192"  # in MB
 # Path to Conda installation
 CONDA_PATH = os.path.expanduser("~/miniconda3/bin/conda")
 
-# Your Conda environment name
+# Your Conda environment name. (If you use different name during creation of the environment.)
 CONDA_ENV = "GEM"
 
-# Sample selection used in the study (see the sample in the project and use as a template)
+# Sample selection used in the study (see the sample in the project and use as a template).
 SAMPLES_PREFIX = "Study-All.csv"  # Name of the study file
 
 # GenBank reference file extensions
@@ -193,16 +193,8 @@ SAMPLE_REVERSE_READS_POSTFIX = "R2_001.trim.fastq.gz"
 # Name of the project
 ANVIO_PROJECT_NAME = "PanAnalyzer"
 
-
-ANVIO_GENOMES_DB = f"{ANVIO_PROJECT_NAME}-GENOMES.db"
-TEMP_OUTPUT = "./OUTPUT/TEMP"
-SPADES_OUTPUT = "./OUTPUT/SPAdes_Results"
-ANVIO_OUTPUT = "./OUTPUT/Anvio_Results"
-
-
 # You must run the pipeline in this order first: FastQC (optional) -> SPAdes -> Anvio
 # If you need to run the SPAdes or Anvio step with different parameters, you can disable the previous or following processed pipeline step(s) that have already run to avoid re-running the entire pipeline or resetting result folders.
-
 PIPE_FASTQC = True
 PIPE_SPADES = False
 PIPE_ANVI_O = False
@@ -222,7 +214,26 @@ Create a study CSV file in the DATA folder and add sample names to the file (see
 **Step 4**:
 The `pipeline.py` is the main entry point of the pipeline. Please update PanAnalyzer options (top of the `pipeline.py`) based on your system. You must manually create `FastQC_Results`, `SPAdes_Results`, and `Anvio_Results` folders inside the OUTPUT folder before running the application (if not available).
 
-Run the Python file
+Expected project layout before running the pipeline:
+
+```
+PanAnalyzer/
+├── DATA/
+│   ├── <study>.csv (See the sample)
+│   ├── Samples/
+│   │   └── <sample fastq.gz files>
+│   └── Ref/
+│       └── <reference .fna files>
+├── OUTPUT/
+│   ├── FastQC_Results/
+│   ├── SPAdes_Results/
+│   └── Anvio_Results/
+├── pipeline.py
+├── utility.py
+└── README.md
+```
+
+Run the Python file.
 
 ```bash
 python3 pipeline.py
@@ -234,14 +245,12 @@ python3 pipeline.py
 
 We need to verify the quality before assembly. We use FastQC for quality checks.
 
-1. Create required folders
-
-   ```bash
-   # Quality check
-   fastqc --threads 8 --memory 16G NP1_S1_R1_001.trim.fastq.gz NP1_S1_R2_001.trim.fastq.gz
-   # Create a summary report using MultiQC
-   multiqc .
-   ```
+```bash
+# Quality check
+fastqc --threads 8 --memory 16G NP1_S1_R1_001.trim.fastq.gz NP1_S1_R2_001.trim.fastq.gz
+# Create a summary report using MultiQC
+multiqc .
+```
 
 Look for:
 

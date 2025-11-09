@@ -40,8 +40,8 @@ PIPE_ANVI_O = False
 
 # STOP: Do not change these output directory paths. Create them if they do not exist.
 TEMP_OUTPUT = "./OUTPUT/TEMP"
+FASTQC_OUTPUT = "./OUTPUT/FastQC_Results"
 SPADES_OUTPUT = "./OUTPUT/SPAdes_Results"
-FASTQC_Results = "./OUTPUT/FastQC_Results"
 ANVIO_OUTPUT = "./OUTPUT/Anvio_Results"
 
 
@@ -75,7 +75,7 @@ if __name__ == "__main__":
     ####################################################################################################################
     if PIPE_FASTQC:
         # Clean the output directory before starting
-        app_utility.clean_output_directory(FASTQC_Results)
+        app_utility.clean_output_directory(FASTQC_OUTPUT)
 
         for idx, (sample_id, sample_data) in enumerate(validated_samples.items(), 1):
             r1_file = sample_data["forward"]
@@ -91,7 +91,7 @@ if __name__ == "__main__":
                     "fastqc",
                     sample_file,
                     "-o",
-                    FASTQC_Results,
+                    FASTQC_OUTPUT,
                     "--threads",
                     THREADS,
                     "--memory",
@@ -119,9 +119,9 @@ if __name__ == "__main__":
             "-n",
             CONDA_ENV,
             "multiqc",
-            FASTQC_Results,
+            FASTQC_OUTPUT,
             "-o",
-            os.path.join(FASTQC_Results, "MultiQC_Results"),
+            os.path.join(FASTQC_OUTPUT, "MultiQC_Results"),
             "--clean-up",
         ]
         result = app_utility.bash_execute(command)
@@ -133,7 +133,7 @@ if __name__ == "__main__":
         print("\n✅ MultiQC report generated for FastQC results.")
 
     ####################################################################################################################
-    # STEP 1 : SPeads Assembly
+    # STEP 1 : SPAdes Assembly
     ####################################################################################################################
     if PIPE_SPADES:
         # Clean the output directory before starting
@@ -226,12 +226,12 @@ if __name__ == "__main__":
 
         # Create Anvi'o contigs databases for all genomes (samples + references)
         for genome_id, genome_file in combined_genomes.items():
-            db_file_name = ANVIO_OUTPUT + f"/{genome_id}.db"
+            db_file_name = os.path.join(ANVIO_OUTPUT, f"{genome_id}.db")
 
             # NCBI Reference genomes need to be reformatted -> https://anvio.org/help/main/programs/anvi-script-reformat-fasta/
             temp_genome_file = None
             if genome_file.endswith(REFERENCE_FILE_EXTENSION):
-                temp_genome_file = TEMP_OUTPUT + f"/{genome_id}.fna"
+                temp_genome_file = os.path.join(TEMP_OUTPUT, f"{genome_id}.fna")
                 command = [
                     CONDA_PATH,
                     "run",

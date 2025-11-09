@@ -85,13 +85,22 @@ def clean_output_directory(output_dir):
     if os.path.exists(output_dir):
         print(f"\n🗑️  Cleaning output directory: {output_dir}")
         try:
-            shutil.rmtree(output_dir)
-            print(f"✓ Successfully removed: {output_dir}")
+            for entry in os.listdir(output_dir):
+                if entry == ".gitignore":
+                    continue
+
+                entry_path = os.path.join(output_dir, entry)
+
+                if os.path.isdir(entry_path):
+                    shutil.rmtree(entry_path)
+                else:
+                    os.remove(entry_path)
+
+            print(f"✓ Successfully cleaned: {output_dir}")
         except Exception as e:
             print(f"✗ Error removing directory: {e}")
             return False
 
-    # Recreate the directory
     os.makedirs(output_dir, exist_ok=True)
     print(f"✓ Created clean directory: {output_dir}\n")
     return True
