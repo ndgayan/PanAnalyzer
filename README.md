@@ -24,7 +24,7 @@ The true power of PanAnalyzer is realized in the final visualization. Anvio's in
 
 ## The Pipeline Diagram
 
-![alt text](diagram.png)
+![alt text](Resources/diagram.png)
 
 ## Environment Setup
 
@@ -232,12 +232,12 @@ chmod +x server.sh  # You need to make the script file executable once.
 
 - Access to the server by typing localhost:8080 (Change the port if you change it in the arguments)
 
-![alt text](pan.png)
+![alt text](Resources/pan.png)
 
 - After analyzing results, close the ruining server by pressing CTRL + C in the terminal that server is running
 
 **Step 6**:
-To
+Use the Interactive Tree Of Life (iTOL) is an online tool for the display, annotation and management of phylogenetic and other trees. The \*.newick files are located at the OUTPUT/Anvio_Results/ANI directory.
 
 Expected project layout before running the pipeline:
 
@@ -303,6 +303,8 @@ After the process, aggregated report HTML files will be created in the `FastQC_R
 Watch this video for more information:
 
 [![MultiQC Tutorial](https://img.youtube.com/vi/qPbIlO_KWN0/0.jpg)](https://www.youtube.com/watch?v=qPbIlO_KWN0)
+
+![alt text](Resources/multiqc.png)
 
 **Duplicates** = reads with identical sequences appearing multiple times. Can arise from PCR amplification bias or low library complexity. For short-read Illumina data, some duplication (10–20%) is normal, especially with:
 
@@ -408,9 +410,16 @@ In your browser, type `localhost:8080` to render the page. Finally, press Ctrl+C
 
 - The .newick file generated from the ANI process located at the ANI folder inside Anvio_Results folder. You can upload these files to the iTOL website to do moore visulizations.
 
+  1.  ANIb_alignment_coverage.newick: Tree based on the percentage of the genomes that aligned.
+  2.  ANIb_full_percentage_identity.newick: Tree based on the nucleotide identity across the entire aligned region.
+  3.  **ANIb_percentage_identity.newick**: Tree based on the standard percentage identity (this is a very common choice).
+  4.  ANIb_hadamard.newick: Tree based on a Hadamard-transformed distance matrix (another way to represent the identity data).
+
   - Watch this video for more information:
 
     [![Anvio Pangenome Analysis Tutorial](https://img.youtube.com/vi/iUguH8ZHGU8/0.jpg)](https://youtu.be/iUguH8ZHGU8?si=etV0j2mtv8emrgLI)
+
+    ![alt text](Resources/itol.png)
 
 ## Analysis Tutorial
 
