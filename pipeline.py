@@ -30,9 +30,10 @@ ANVIO_PROJECT_NAME = "PanAnalyzer"
 ANVIO_GENOMES_DB = f"{ANVIO_PROJECT_NAME}-GENOMES.db"
 
 # What part of the study to run.
-PIPE_FASTQC = True
-PIPE_SPADES = True
-PIPE_ANVI_O = True
+PIPE_FASTQC = False
+PIPE_SPADES = False
+PIPE_ANVI_O = False
+PIPE_RELATIONSHIPS = True
 
 ########################################################################################################################
 ########################################################################################################################
@@ -101,7 +102,7 @@ if __name__ == "__main__":
                 print(f"Success: {result['success']}")
                 if not result["success"]:
                     print(
-                        f"Error running FastQC for sample {sample_file}: {result['error']}"
+                        f"Error running FastQC for sample {sample_file}: {result['error'].output}"
                     )
                     exit(1)
                 else:
@@ -127,7 +128,7 @@ if __name__ == "__main__":
         result = app_utility.bash_execute(command)
         print(f"Success: {result['success']}")
         if not result["success"]:
-            print(f"Error running MultiQC for FastQC Samples: {result['error']}")
+            print(f"Error running MultiQC for FastQC Samples: {result['error'].output}")
             exit(1)
 
         print("\n✅ MultiQC report generated for FastQC results.")
@@ -166,7 +167,9 @@ if __name__ == "__main__":
             result = app_utility.bash_execute(command)
             print(f"Success: {result['success']}")
             if not result["success"]:
-                print(f"Error running SPAdes for sample {sample_id}: {result['error']}")
+                print(
+                    f"Error running SPAdes for sample {sample_id}: {result['error'].output}"
+                )
                 exit(1)
             else:
                 print(f"Sample {idx}: {sample_id} - SPAdes assembly completed.")
@@ -176,53 +179,52 @@ if __name__ == "__main__":
     ####################################################################################################################
     # STEP 2 : Anvi'o Pipeline
     ####################################################################################################################
+
+    # Validate Reference files
+    try:
+        # Get all files in the Reference directory
+        reference_files = app_utility.get_files_from_directory("./DATA/Ref")
+        print(f"\nTotal files in Reference directory: {len(reference_files)}")
+
+        # Validate that all reference samples have required files
+        validated_references = app_utility.validate_reference_files(
+            samples_dict=samples,
+            reference_files=reference_files,
+            file_extension=REFERENCE_FILE_EXTENSION,
+            filter_type="Reference",
+        )
+        print(
+            f"\nValidated references with required files: {len(validated_references)}"
+        )
+
+    except FileNotFoundError:
+        print(
+            "\n⚠️  PROCESS STOPPED: Cannot proceed without all required reference files"
+        )
+        exit(1)
+
+    # Validate SPAdes output contig files
+    try:
+        validated_contigs = app_utility.validate_spades_output(
+            samples_dict=samples,
+            spades_output_dir=SPADES_OUTPUT,
+            filter_type="Sample",
+        )
+    except FileNotFoundError:
+        print("\n⚠️  PROCESS STOPPED: Cannot proceed without all contigs.fasta files")
+        exit(1)
+
+    # Combine sample contigs and reference genomes
+    combined_genomes = {}
+    for sample_id, contig_path in validated_contigs.items():
+        combined_genomes[sample_id] = contig_path
+    for ref_id, ref_data in validated_references.items():
+        combined_genomes[ref_id] = ref_data["file"]
+
     if PIPE_ANVI_O:
         # Clean the output directory before starting
         app_utility.clean_output_directory(ANVIO_OUTPUT)
         app_utility.clean_output_directory(TEMP_OUTPUT)
-
-        # Validate Reference files
-        try:
-            # Get all files in the Reference directory
-            reference_files = app_utility.get_files_from_directory("./DATA/Ref")
-            print(f"\nTotal files in Reference directory: {len(reference_files)}")
-
-            # Validate that all reference samples have required files
-            validated_references = app_utility.validate_reference_files(
-                samples_dict=samples,
-                reference_files=reference_files,
-                file_extension=REFERENCE_FILE_EXTENSION,
-                filter_type="Reference",
-            )
-            print(
-                f"\nValidated references with required files: {len(validated_references)}"
-            )
-
-        except FileNotFoundError:
-            print(
-                "\n⚠️  PROCESS STOPPED: Cannot proceed without all required reference files"
-            )
-            exit(1)
-
-        # Validate SPAdes output contig files
-        try:
-            validated_contigs = app_utility.validate_spades_output(
-                samples_dict=samples,
-                spades_output_dir=SPADES_OUTPUT,
-                filter_type="Sample",
-            )
-        except FileNotFoundError:
-            print(
-                "\n⚠️  PROCESS STOPPED: Cannot proceed without all contigs.fasta files"
-            )
-            exit(1)
-
-        # Combine sample contigs and reference genomes
-        combined_genomes = {}
-        for sample_id, contig_path in validated_contigs.items():
-            combined_genomes[sample_id] = contig_path
-        for ref_id, ref_data in validated_references.items():
-            combined_genomes[ref_id] = ref_data["file"]
 
         # Create Anvi'o contigs databases for all genomes (samples + references)
         for genome_id, genome_file in combined_genomes.items():
@@ -248,7 +250,7 @@ if __name__ == "__main__":
                 result = app_utility.bash_execute(command)
                 if not result["success"]:
                     print(
-                        f"Error creating contigs DB for sample {sample_id}: {result['error']}"
+                        f"Error creating contigs DB for sample {sample_id}: {result['error'].output}"
                     )
                     exit(1)
                 genome_file = temp_genome_file
@@ -272,7 +274,7 @@ if __name__ == "__main__":
             result = app_utility.bash_execute(command)
             if not result["success"]:
                 print(
-                    f"Error creating contigs DB for sample {sample_id}: {result['error']}"
+                    f"Error creating contigs DB for sample {sample_id}: {result['error'].output}"
                 )
                 exit(1)
             if temp_genome_file and os.path.exists(temp_genome_file):
@@ -292,7 +294,9 @@ if __name__ == "__main__":
             ]
             result = app_utility.bash_execute(command)
             if not result["success"]:
-                print(f"Error running HMMs for sample {sample_id}: {result['error']}")
+                print(
+                    f"Error running HMMs for sample {sample_id}: {result['error'].output}"
+                )
                 exit(1)
 
             # Annotate genes with COGs -> https://anvio.org/help/main/programs/anvi-run-ncbi-cogs/
@@ -310,7 +314,7 @@ if __name__ == "__main__":
             result = app_utility.bash_execute(command)
             if not result["success"]:
                 print(
-                    f"Error running Annotations for sample {sample_id}: {result['error']}"
+                    f"Error running Annotations for sample {sample_id}: {result['error'].output}"
                 )
                 exit(1)
 
@@ -345,7 +349,7 @@ if __name__ == "__main__":
         ]
         result = app_utility.bash_execute(command)
         if not result["success"]:
-            print(f"Error creating genomes storage: {result['error']}")
+            print(f"Error creating genomes storage: {result['error'].output}")
             exit(1)
 
         print(f"\n✅ Genomes storage database created: {ANVIO_GENOMES_DB}")
@@ -373,7 +377,7 @@ if __name__ == "__main__":
         ]
         result = app_utility.bash_execute(command)
         if not result["success"]:
-            print(f"Error running pangenome analysis: {result['error']}")
+            print(f"Error running pangenome analysis: {result['error'].output}")
             exit(1)
 
         print("\n✅ Pangenome analysis completed successfully.")
@@ -398,13 +402,58 @@ if __name__ == "__main__":
         ]
         result = app_utility.bash_execute(command)
         if not result["success"]:
-            print(f"Error computing genome similarity: {result['error']}")
+            print(f"Error computing genome similarity: {result['error'].output}")
             exit(1)
 
         print(
-            "\n✅ Genome similarity analysis completed successfully. Please find GenomeDB and PanDB in the Anvio_Results directory."
+            "\n✅ Genome similarity analysis completed successfully. Please find GenomeDB and PanDB in the Anvio_Results directory. Please use server.py script to run the pan genome web server and visualize the pan."
         )
 
-    print(
-        "\n🎉 All selected pipeline steps completed successfully. Please use server.py script to run the pan genome web server and visualize the pan."
-    )
+    if PIPE_RELATIONSHIPS:
+        # Compute phylogenomic tree from core genes -> https://anvio.org/help/main/programs/anvi-get-sequences-for-gene-clusters/
+
+        # ANIb_percentage_identity.newick: Best for strain typing and identifying closely related isolates
+        # phylogenomic_tree.nwk: Best for evolutionary analysis and understanding gene-level relationships
+        # Both trees may show similar clustering patterns for closely related genomes, but can differ significantly when comparing more divergent strains or when horizontal gene transfer is involved.
+        command = [
+            CONDA_PATH,
+            "run",
+            "-n",
+            CONDA_ENV,
+            "anvi-get-sequences-for-gene-clusters",
+            "-p",
+            os.path.join(ANVIO_OUTPUT, "PAN", f"{ANVIO_PROJECT_NAME}-PAN.db"),
+            "-g",
+            os.path.join(ANVIO_OUTPUT, ANVIO_GENOMES_DB),
+            "--min-num-genomes-gene-cluster-occurs",
+            str(len(combined_genomes)),
+            "--concatenate-gene-clusters",
+            "--output-file",
+            os.path.join(ANVIO_OUTPUT, "PAN", "gene_clusters_aligned.faa"),
+            "--force-overwrite",
+        ]
+        result = app_utility.bash_execute(command)
+        if not result["success"]:
+            print(f"Error extracting core gene sequences: {result['error'].output}")
+            exit(1)
+
+        print("\n✅ Core gene sequences extracted.")
+
+        # Generate phylogenomic tree -> https://anvio.org/help/main/programs/anvi-gen-phylogenomic-tree/
+        command = [
+            CONDA_PATH,
+            "run",
+            "-n",
+            CONDA_ENV,
+            "anvi-gen-phylogenomic-tree",
+            "-f",
+            os.path.join(ANVIO_OUTPUT, "PAN", "gene_clusters_aligned.faa"),
+            "-o",
+            os.path.join(ANVIO_OUTPUT, "PAN", "phylogenomic_tree.nwk"),
+        ]
+        result = app_utility.bash_execute(command)
+        if not result["success"]:
+            print(f"Error generating phylogenomic tree: {result['error'].output}")
+            exit(1)
+
+        print("\n✅ Phylogenomic tree generated successfully.")

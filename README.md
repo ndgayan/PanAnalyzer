@@ -390,6 +390,37 @@ Compute ANI (Average Nucleotide Identity). This will generate the `*.newick` fil
 anvi-compute-genome-similarity --external-genomes external-genomes.txt --program pyANI --output-dir ANI_Results --pan-db MY-PROJECT/MY-PROJECT-PAN.db
 ```
 
+#### Optional - Adding Phylogenomic Tree to Your Pipeline
+
+If you want to generate phylogenomic_tree.nwk, add this step after the pan-genome analysis:
+
+Key Differences
+
+1. ANIb_percentage_identity.newick
+
+   - Method: Genome-level comparison using ANI (Average Nucleotide Identity)
+   - Input: Whole genome sequences (nucleotides)
+   - Algorithm: pyANI with BLASTN alignment
+   - Comparison: Compares entire genome sequences between isolates
+   - Use case: Shows overall genomic similarity between strains/isolates
+
+2. The phylogenomic_tree.nwk (from anvi-gen-phylogenomic-tree)
+   - Method: Gene-level comparison using concatenated core gene alignments
+   - Input: Aligned amino acid sequences from core gene clusters (gene_clusters_aligned.faa)
+   - Algorithm: Phylogenetic tree construction (typically IQ-TREE or FastTree)
+   - Comparison: Uses only conserved genes shared across all genomes
+   - Use case: Shows evolutionary relationships based on core genome
+
+```bash
+# Create a default collection (Optional)
+# anvi-script-add-default-collection -p OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db
+
+# Get sequences for gene clusters
+anvi-get-sequences-for-gene-clusters -p ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -g ./OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db --min-num-genomes-gene-cluster-occurs NUM_OF_GENES_IN_YOUR_STUDY --concatenate-gene-clusters --output-file ./OUTPUT/Anvio_Results/PAN/gene_clusters_aligned.faa
+
+anvi-gen-phylogenomic-tree -f ./OUTPUT/Anvio_Results/PAN/gene_clusters_aligned.faa -o ./OUTPUT/Anvio_Results/PAN/phylogenomic_tree.nwk
+```
+
 #### Run the pan genome
 
 This will run the genome analysis using the genome storage.
