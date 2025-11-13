@@ -2,17 +2,17 @@
 
 **PanAnalyzer** is a powerful and integrated bioinformatics pipeline designed to streamline the process of genome analysis, moving from raw sequencing data to sophisticated, interactive pangenome visualization. By leveraging a curated set of industry-standard tools—**FastQC**, **SPAdes**, and **Anvio 8**—this pipeline provides an end-to-end solution for researchers in microbial genomics, evolutionary biology, and comparative genomics. The primary goal of PanAnalyzer is to automate the critical steps of quality control, assembly, and pangenome characterization, enabling researchers to efficiently analyze multiple genomes and uncover the core, accessory, and unique gene repertoires of their target species.
 
-### 1. Initial Data Processing and Quality Control
+## 1. Initial Data Processing and Quality Control
 
 The pipeline's workflow begins with the essential step of quality assessment. All incoming raw sequencing read files (typically in `.fastq` format) are first processed by **FastQC**. This tool generates comprehensive diagnostic reports for each sample, meticulously evaluating key metrics such as per-base quality scores, GC content, sequence duplication levels, and the presence of overrepresented sequences or adapter contamination.
 
 These reports are critical for identifying potential issues with the sequencing data. Informed by the FastQC output, PanAnalyzer then proceeds to a rigorous pre-processing and filtering stage (often using tools like Trimmomatic or fastp) to remove low-quality bases, trim adapters, and filter out reads that do not meet quality thresholds. This refinement is essential for ensuring that only high-quality, reliable data is passed on to the assembly stage, significantly improving the accuracy and contiguity of the resulting genome.
 
-### 2. High-Performance De Novo Genome Assembly
+## 2. High-Performance De Novo Genome Assembly
 
 Once the reads are cleaned, the high-quality data is fed into **SPAdes**, a high-performance _de novo_ genome assembler. SPAdes is chosen for its robustness and its sophisticated de Bruijn graph-based algorithms, which are adept at handling various sequencing data types, including Illumina short reads, and are particularly effective for bacterial and archaeal genomes. It carefully navigates repeats and coverage variations to reconstruct the most plausible genomic sequence from the short-read data. The primary output of this stage is a `contigs.fasta` file for each sample, which represents the draft genome assembly for that organism.
 
-### 3. Pangenome Construction and Visualization
+## 3. Pangenome Construction and Visualization
 
 With the draft genomes assembled, PanAnalyzer transitions from single-genome reconstruction to multi-genome comparative analysis using the **Anvio 8** platform. This is the core of the pangenome analysis.
 
@@ -164,6 +164,52 @@ conda install -c bioconda spades
 spades.py --help
 spades.py --test --careful && rm -rf spades_test
 ```
+
+### Setup Prokka
+
+Rapid bacterial genome annotation. Whole genome annotation is the process of identifying features of interest in a set of genomic DNA sequences, and labelling them with useful information. Prokka is a software tool to annotate bacterial, archaeal and viral genomes quickly and produce standards-compliant output files.
+
+```bash
+conda deactivate
+# Make sure you are on (base) env
+conda create -n GEM-ROARY -c conda-forge -c bioconda prokka
+conda activate GEM-ROARY
+prokka --setupdb
+prokka --help
+```
+
+### Setup Roray
+
+Roary is a high speed stand alone pan genome pipeline, which takes annotated assemblies in GFF3 format (produced by Prokka (Seemann, 2014)) and calculates the pan genome.
+
+```bash
+conda install -c conda-forge -c bioconda roary
+roary --help
+```
+
+### Setup IQ-TREE 2
+
+IQ-TREE is an excellent and modern choice for Maximum Likelihood phylogeny.
+
+```bash
+conda install -c bioconda iqtree
+iqtree --help
+# In the root folder Roary_Results_<Number> folder generated.
+iqtree -s Roary_Results_1762224867/core_gene_alignment.aln -T 8 -m GTR+G -bb 1000
+#Analysis results written to: 
+   #IQ-TREE report:                Roary_Results_1762224867/core_gene_alignment.aln.iqtree
+   #Maximum-likelihood tree:       Roary_Results_1762224867/core_gene_alignment.aln.treefile
+   #Likelihood distances:          Roary_Results_1762224867/core_gene_alignment.aln.mldist
+   #Screen log file:               Roary_Results_1762224867/core_gene_alignment.aln.log
+```
+
+The **core_gene_alignment.aln.treefile** is the Maximum-Likelihood (ML) tree calculated by IQ-TREE and is in the Newick format (or a similar, compatible tree format). This file contains all the necessary branching information and branch lengths to display the evolutionary relationships among your genomes.
+
+The **core_gene_alignment.aln.iqtree** is the verbose report file. It contains detailed information about the model selection, log-likelihood, and other run statistics, but it is not the file for graphical tree display.
+
+Use TreeViewer to Visualize -> <https://github.com/arklumpus/TreeViewer/wiki>  
+Use <https://icytree.org/>
+
 
 ## PanAnalyzer Options
 
@@ -454,6 +500,8 @@ In your browser, type `localhost:8080` to render the page. Finally, press Ctrl+C
 
 ## Analysis Tutorial
 
+[Anvi'o User Tutorial for Metagenomic Workflow](https://merenlab.org/2016/06/22/anvio-tutorial-v2/)
+
 [A primer on anvi'o](https://merenlab.org/tutorials/infant-gut/)
 
 [Workshops Installation Tutorials Help An anvi'o workflow for microbial pangenomics](https://merenlab.org/2016/11/08/pangenomics-v2/)
@@ -465,6 +513,12 @@ In your browser, type `localhost:8080` to render the page. Finally, press Ctrl+C
 [Single-cell 'Omics with anvi'o](https://anvio.org/tutorials/single-cell-genomics-workshop/)
 
 [An anvi'o tutorial with Trichodesmium genomes](https://anvio.org/tutorials/trichodesmium-tutorial/)
+
+anvi-summarize -p /home/gayan/Documents/PanAnalyzer/OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -g /home/gayan/Documents/PanAnalyzer/OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db --list-collections
+
+anvi-summarize -p /home/gayan/Documents/PanAnalyzer/OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -g /home/gayan/Documents/PanAnalyzer/OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db -C DEFAULT --fix-sad-tables
+
+anvi-summarize -p /home/gayan/Documents/PanAnalyzer/OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -g /home/gayan/Documents/PanAnalyzer/OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db -C DEFAULT -o PAN_SUMMARY
 
 ## Credits
 

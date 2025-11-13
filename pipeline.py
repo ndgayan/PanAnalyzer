@@ -20,7 +20,7 @@ MEMORY = "8192"  # in MB
 CONDA_PATH = os.path.expanduser("~/miniconda3/bin/conda")
 CONDA_ENV = "GEM"
 
-SAMPLES_PREFIX = "Study-Small.csv"  # Name of the study file
+SAMPLES_PREFIX = "Study-All.csv"  # Name of the study file
 REFERENCE_FILE_EXTENSION = ".fna"
 
 SAMPLE_FORWARD_READS_POSTFIX = "R1_001.trim.fastq.gz"
@@ -32,8 +32,12 @@ ANVIO_GENOMES_DB = f"{ANVIO_PROJECT_NAME}-GENOMES.db"
 # What part of the study to run.
 PIPE_FASTQC = False
 PIPE_SPADES = False
+
 PIPE_ANVI_O = False
-PIPE_RELATIONSHIPS = True
+PIPE_RELATIONSHIPS = False
+
+PIPE_PROKKA = True
+PIPE_ROARY = True
 
 ########################################################################################################################
 ########################################################################################################################
@@ -44,6 +48,8 @@ TEMP_OUTPUT = "./OUTPUT/TEMP"
 FASTQC_OUTPUT = "./OUTPUT/FastQC_Results"
 SPADES_OUTPUT = "./OUTPUT/SPAdes_Results"
 ANVIO_OUTPUT = "./OUTPUT/Anvio_Results"
+PROKKA_OUTPUT = "./OUTPUT/Prokka_Results"
+ROARY_OUTPUT = "./OUTPUT/Roary_Results"
 
 
 if __name__ == "__main__":
@@ -163,7 +169,6 @@ if __name__ == "__main__":
                 "-2",
                 r2_file,
             ]
-
             result = app_utility.bash_execute(command)
             print(f"Success: {result['success']}")
             if not result["success"]:
@@ -415,6 +420,7 @@ if __name__ == "__main__":
         # ANIb_percentage_identity.newick: Best for strain typing and identifying closely related isolates
         # phylogenomic_tree.nwk: Best for evolutionary analysis and understanding gene-level relationships
         # Both trees may show similar clustering patterns for closely related genomes, but can differ significantly when comparing more divergent strains or when horizontal gene transfer is involved.
+        print("\nExtracting core gene sequences for phylogenomic tree...")
         command = [
             CONDA_PATH,
             "run",
@@ -425,12 +431,14 @@ if __name__ == "__main__":
             os.path.join(ANVIO_OUTPUT, "PAN", f"{ANVIO_PROJECT_NAME}-PAN.db"),
             "-g",
             os.path.join(ANVIO_OUTPUT, ANVIO_GENOMES_DB),
-            "--min-num-genomes-gene-cluster-occurs",
+            # "--min-num-genomes-gene-cluster-occurs",
             str(len(combined_genomes)),
             "--concatenate-gene-clusters",
             "--output-file",
             os.path.join(ANVIO_OUTPUT, "PAN", "gene_clusters_aligned.faa"),
             "--force-overwrite",
+            "-C",
+            "DEFAULT",
         ]
         result = app_utility.bash_execute(command)
         if not result["success"]:
@@ -457,3 +465,162 @@ if __name__ == "__main__":
             exit(1)
 
         print("\n✅ Phylogenomic tree generated successfully.")
+
+    ####################################################################################################################
+    # STEP 3 : Prokka Annotation
+    ####################################################################################################################
+
+    # Collect all genomes to annotate (both contigs and references)
+    genomes_to_annotate = {}
+
+    # Add reference genomes from DATA/Ref
+    for ref_id, ref_data in validated_references.items():
+        genomes_to_annotate[ref_id] = ref_data["file"]
+
+    # Add sample contigs from SPAdes
+    for sample_id, contig_path in validated_contigs.items():
+        genomes_to_annotate[sample_id] = contig_path
+
+    if PIPE_PROKKA:
+        app_utility.clean_output_directory(PROKKA_OUTPUT)
+
+        print(f"\n✅ Total genomes to annotate: {len(genomes_to_annotate)}")
+
+        # Run Prokka for each genome
+        for genome_id, genome_path in genomes_to_annotate.items():
+            print(f"\nAnnotating {genome_id}...")
+
+            output_dir = os.path.join(PROKKA_OUTPUT, genome_id)
+
+            command = [
+                CONDA_PATH,
+                "run",
+                "-n",
+                "GEM-PROKKA",
+                "prokka",
+                "--outdir",
+                output_dir,
+                "--prefix",
+                genome_id,
+                "--cpus",
+                THREADS,
+                "--force",  # Overwrite existing output directory
+                genome_path,
+            ]
+
+            result = app_utility.bash_execute(command)
+            if not result["success"]:
+                print(f"Error running Prokka for {genome_id}: {result['error']}")
+                continue
+
+            print(f"✅ Prokka annotation completed for {genome_id}")
+
+        print(
+            f"\n✅ All Prokka annotations completed. Results stored in {PROKKA_OUTPUT}"
+        )
+
+    ####################################################################################################################
+    # STEP 4 : ROARY Pangenome Analysis
+    ####################################################################################################################
+
+    if PIPE_ROARY:
+        app_utility.clean_output_directory(ROARY_OUTPUT)
+
+        # Collect all GFF files from Prokka output directory
+        gff_files = []
+        seen_labels = set()
+
+        if not os.path.exists(PROKKA_OUTPUT):
+            print(f"ERROR: Prokka output directory not found: {PROKKA_OUTPUT}")
+            exit(1)
+
+        # Iterate through sample directories in Prokka output
+        for sample_id in validated_contigs.keys():
+            # Look for exact directory match
+            sample_dir = os.path.join(PROKKA_OUTPUT, sample_id)
+
+            if not os.path.isdir(sample_dir):
+                print(
+                    f"WARNING: No Prokka directory found for {sample_id}; skipping..."
+                )
+                continue
+
+            # Check for duplicate labels (shouldn't happen with exact matching)
+            if sample_id in seen_labels:
+                print(
+                    f"WARNING: Duplicate sample label {sample_id} encountered; skipping duplicate entry."
+                )
+                continue
+
+            # Check if GFF file exists
+            gff_path = os.path.join(sample_dir, f"{sample_id}.gff")
+
+            if not os.path.exists(gff_path):
+                print(f"WARNING: GFF file missing for {sample_id}; skipping...")
+                continue
+
+            # Add full path to list
+            gff_files.append(os.path.realpath(gff_path))
+            seen_labels.add(sample_id)
+            print(f"✓ Found {os.path.realpath(gff_path)}")
+
+        if len(gff_files) == 0:
+            print("ERROR: No GFF files collected for Roary.")
+            exit(1)
+
+        print(f"\n✅ Collected {len(gff_files)} GFF files for Roary analysis")
+
+        # Run Roary core genome alignment -> https://github.com/sanger-pathogens/Roary
+
+        print("\nRunning Roary core genome alignment...")
+
+        # Change to ROARY_OUTPUT directory to run Roary there
+        original_dir = os.getcwd()
+        os.chdir(ROARY_OUTPUT)
+
+        command = [
+            CONDA_PATH,
+            "run",
+            "-n",
+            "GEM-ROARY",
+            "roary",
+            "-e",  # Create a multiFASTA alignment of core genes using PRANK
+            "-n",  # Fast core gene alignment with MAFFT
+            "-p",
+            THREADS,  # Number of threads
+            "-f",
+            ".",  # Output directory
+        ] + gff_files  # Add all GFF file paths
+        result = app_utility.bash_execute(command)
+        if not result["success"]:
+            print(f"Error running Roary: {result['error'].output}")
+            exit(1)
+
+        print(f"\n✅ Roary analysis completed. Results stored in {ROARY_OUTPUT}")
+
+        # IQ TREE Phylogenetic Analysis
+
+        print("\nRunning IQ-TREE phylogenetic analysis...")
+
+        # Run IQ-TREE -> http://www.iqtree.org/
+        command = [
+            CONDA_PATH,
+            "run",
+            "-n",
+            "GEM-ROARY",  # or your IQ-TREE conda environment
+            "iqtree",
+            "-s",
+            "core_gene_alignment.aln",  # Input alignment
+            "-T",
+            THREADS,  # Number of threads
+            "-m",
+            "GTR+G",  # GTR model with Gamma rate heterogeneity
+            "-bb",
+            "1000",  # Bootstrap replicates (1000 is standard)
+        ]
+        result = app_utility.bash_execute(command)
+        if not result["success"]:
+            print(f"Error running IQ-TREE: {result['error'].output}")
+            exit(1)
+
+        print("\n✅ IQ-TREE phylogenetic analysis completed.")
