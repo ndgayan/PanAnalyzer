@@ -165,51 +165,31 @@ spades.py --help
 spades.py --test --careful && rm -rf spades_test
 ```
 
-### Setup Prokka
-
-Rapid bacterial genome annotation. Whole genome annotation is the process of identifying features of interest in a set of genomic DNA sequences, and labelling them with useful information. Prokka is a software tool to annotate bacterial, archaeal and viral genomes quickly and produce standards-compliant output files.
-
-```bash
-conda deactivate
-# Make sure you are on (base) env
-conda create -n GEM-ROARY -c conda-forge -c bioconda prokka
-conda activate GEM-ROARY
-prokka --setupdb
-prokka --help
-```
-
-### Setup Roray
-
-Roary is a high speed stand alone pan genome pipeline, which takes annotated assemblies in GFF3 format (produced by Prokka (Seemann, 2014)) and calculates the pan genome.
-
-```bash
-conda install -c conda-forge -c bioconda roary
-roary --help
-```
-
 ### Setup IQ-TREE 2
 
 IQ-TREE is an excellent and modern choice for Maximum Likelihood phylogeny.
 
 ```bash
+# Activate Conda environment
+conda activate GEM  # If Conda environment is not already activated.
+
 conda install -c bioconda iqtree
 iqtree --help
 # In the root folder Roary_Results_<Number> folder generated.
-iqtree -s Roary_Results_1762224867/core_gene_alignment.aln -T 8 -m GTR+G -bb 1000
+iqtree -s core_gene_alignment.aln -T 8 -m GTR+G -bb 1000
 #Analysis results written to: 
-   #IQ-TREE report:                Roary_Results_1762224867/core_gene_alignment.aln.iqtree
-   #Maximum-likelihood tree:       Roary_Results_1762224867/core_gene_alignment.aln.treefile
-   #Likelihood distances:          Roary_Results_1762224867/core_gene_alignment.aln.mldist
-   #Screen log file:               Roary_Results_1762224867/core_gene_alignment.aln.log
+   #IQ-TREE report:                core_gene_alignment.aln.iqtree
+   #Maximum-likelihood tree:       core_gene_alignment.aln.treefile
+   #Likelihood distances:          core_gene_alignment.aln.mldist
+   #Screen log file:               core_gene_alignment.aln.log
 ```
 
-The **core_gene_alignment.aln.treefile** is the Maximum-Likelihood (ML) tree calculated by IQ-TREE and is in the Newick format (or a similar, compatible tree format). This file contains all the necessary branching information and branch lengths to display the evolutionary relationships among your genomes.
+The **core_gene_alignment.aln.treefile** is the Maximum-Likelihood (ML) tree calculated by IQ-TREE and is in the Newick format (or a similar, compatible tree format). This file contains all the necessary branching information and branch lengths to display the evolutionary relationships among your genomes. Use this file to visualize in the iTOL.
 
 The **core_gene_alignment.aln.iqtree** is the verbose report file. It contains detailed information about the model selection, log-likelihood, and other run statistics, but it is not the file for graphical tree display.
 
 Use TreeViewer to Visualize -> <https://github.com/arklumpus/TreeViewer/wiki>  
 Use <https://icytree.org/>
-
 
 ## PanAnalyzer Options
 
@@ -249,18 +229,18 @@ PIPE_ANVI_O = False
 ## How to Run the Pipeline and Visualize Data
 
 **Step 1**:
-Add your forward and reverse read samples (`*.fastq.gz`) to the `DATA/Samples` directory. Example pairs include `NP1_S1_R1_001.trim.fastq.gz` (forward) and `NP1_S1_R2_001.trim.fastq.gz` (reverse). Ensure the `NP1` prefix (or equivalent) matches the sample ID recorded in `Study.csv`, and confirm that both forward and reverse reads for every sample are present in the `Samples` folder.
+Add your forward and reverse read samples (`*.fastq.gz`) to the `DATA/Samples` directory. Example pairs include `NP1_S1_R1_001.trim.fastq.gz` (forward) and `NP1_S1_R2_001.trim.fastq.gz` (reverse). Ensure the `NP1` prefix (or equivalent) matches the sample ID recorded in `sample_all.txt` (See the step 3), and confirm that both forward and reverse reads for every sample are present in the `Samples` folder.
 
 **Step 2**:
-Add reference genome(s) from NCBI. GenBank records provide high-quality references; give each reference file a concise name and avoid special characters in both reference and sample filenames.
+Optinally add reference genome(s) from NCBI. GenBank records provide high-quality references; give each reference file a concise name and avoid special characters in both reference and sample filenames. Make sure to start the referance file with "R_*".
 
 **Step 3**:
-Create `Study.csv` in the `DATA` folder and add your study samples (see the example file on GitHub). Each sample you intend to process must appear in `Study.csv` for the pipeline to include it.
+Create `sample_all.txt` metadata file in the `DATA` folder and add your study samples (see the example file). Each sample you intend to process must appear in `sample_all.txt` for the pipeline to include it. Makesure, the "genome_id"  column head must be the first column.
 
 **Step 4**:
 The **`pipeline.py`** script is the main entry point. Update the PanAnalyzer options (at the top of `pipeline.py`) to match your system. Make sure the `FastQC_Results`, `SPAdes_Results`, and `Anvio_Results` folders exist inside the `OUTPUT` directory before running the application.
 
-Below is the command to run the pipeline.
+Below is the command to run the pipeline after updating settings at the top.
 
 ```bash
 python3 pipeline.py
@@ -285,9 +265,11 @@ chmod +x server.sh  # You need to make the script file executable once.
 **Step 6**:
 Use the Interactive Tree Of Life (iTOL), an online tool for displaying, annotating, and managing phylogenetic trees. The `*.newick` files are located in `OUTPUT/Anvio_Results/ANI`.
 
+Also, you  can use treefile created from the IQTree application.
+
 Expected project layout before running the pipeline:
 
-```
+```text
 PanAnalyzer/
 ├── DATA/
 │   ├── <study>.csv (3 columns CSV file. See the sample)
@@ -310,7 +292,7 @@ Run the Python file.
 python3 pipeline.py
 ```
 
-## Key Tools Used in the **pipeline.py** (Basic form).
+## Key Tools Used in the **pipeline.py** (Basic form)
 
 ### Study Preparation
 
@@ -330,7 +312,7 @@ Look for:
 - Sequence length distribution: consistent (e.g. 150 bp).
 - Paired files: same number of reads (R1 = R2 count).
 
-### How to interpret MultiQC Report (OUTPUT/FastQC_Results/MultiQC_Results):
+### How to interpret MultiQC Report (OUTPUT/FastQC_Results/MultiQC_Results)
 
 Below is the sample command to execute the tool.
 
@@ -428,12 +410,20 @@ The `external-genomes.txt` file has the paths to individual `contigs.db` files c
 anvi-gen-genomes-storage -e external-genomes.txt -o MY-GENOMES.db
 ```
 
-#### Add Metadata tp PAN Database and the functional enrichments.
+#### Run Pan Genome Analysis
 
-Create a tab separated metadata file. Keep note on column names. The "genome_id" must be in the first column. 
+This program implements pangenomics, and organizes genes found within a genomes-storage-db to create a pan-db.
 
-Metadata.txt is:
-genome_id phylogroup
+```bash
+anvi-pan-genome -g MY-GENOMES.db -n MY-GENOME_PROJECT -o ./PAN --num-threads 8 --minbit 0.5 --mcl-inflation 10 --use-ncbi-blast
+```
+
+#### Add Metadata tp PAN Database and the functional enrichments
+
+Create a tab separated metadata file. Keep note on column names. The "genome_id" couln name must be in the first column.
+
+metadata.txt is:
+genome_id species
 NP1 bivia
 NP2 bivia
 NP4 bivia
@@ -441,9 +431,23 @@ NP5 bivia
 ...
 
 ```bash
-nvi-import-misc-data -p /home/gayan/Documents/PanAnalyzer/OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db --target-data-table layers /home/gayan/Documents/PanAnalyzer/DATA/Metadata.txt
+# OPTIONAL
 
-anvi-compute-functional-enrichment-in-pan -p /home/gayan/Documents/PanAnalyzer/OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -g /home/gayan/Documents/PanAnalyzer/OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db -o functional-enrichment-txt --category-variable phylogroup --annotation-source COG20_FUNCTION
+# See layers in the Pan DB.
+anvi-export-table --table layer_additional_data -o ./DATA/genome_metadata_template.txt ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db
+
+# More optional commands.
+anvi-summarize -p ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -g ./OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db --list-collections
+anvi-summarize -p ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -g ./OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db -C DEFAULT --fix-sad-tables
+anvi-summarize -p ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -g ./OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db -C DEFAULT -o PAN_SUMMARY
+
+# END OPTIONAL
+
+# Add custome grouping layers to the Pan DB
+nvi-import-misc-data -p ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db --target-data-table layers ./DATA/study_all_except_ref.txt
+
+# Do the enrichment based on custom groups. E.g., "species" column in the DATA-> Samples -> Study_WO_Ref.txt metadata file. This is a tab separated file.
+anvi-compute-functional-enrichment-in-pan -p ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -g ./OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db -o ./OUTPUT/Anvio_Results/functional-enrichment.txt --category-variable species --annotation-source COG20_FUNCTION
 ```
 
 #### Compute ANI
@@ -481,18 +485,15 @@ anvi-get-sequences-for-gene-clusters -p ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-P
                                     --concatenate-gene-clusters \
                                     --max-num-genes-from-each-genome 1 \
                                     --min-num-genomes-gene-cluster-occurs 60 \
-                                    -o ./OUTPUT/Anvio_Results/concatenated_alignment.fa
+                                    -o ./OUTPUT/Anvio_Results/concatenated_alignment.aln
 
 # Test (Only one bootstrap value created)
-anvi-gen-phylogenomic-tree -f /home/gayan/Documents/PanAnalyzer/OUTPUT/Anvio_Results/concatenated_alignment.fa \
-                           -o /home/gayan/Documents/PanAnalyzer/OUTPUT/Anvio_Results/phylogenomic_tree_with_bootstraps.txt \
+anvi-gen-phylogenomic-tree -f ./OUTPUT/Anvio_Results/concatenated_alignment.aln \
+                           -o ./OUTPUT/Anvio_Results/phylogenomic_tree_with_bootstraps.txt
                            --program fasttree
 
-iqtree -s ./OUTPUT/Anvio_Results/concatenated_alignment.fa \
-      -m TEST \
-      -bb 100 \
-      -T 8 \
-      --prefix ./OUTPUT/Anvio_Results/IQ-TREE_phylogeny
+# IQ TREE to create tree
+iqtree -s ./OUTPUT/Anvio_Results/concatenated_alignment.aln -m TEST -bb 100 -T 8 --prefix ./OUTPUT/Anvio_Results/IQ-TREE
 ```
 
 ##### What this does?
@@ -523,10 +524,10 @@ In your browser, type `localhost:8080` to render the page. Finally, press Ctrl+C
 
 - The `.newick` files generated during the ANI process are located in the `ANI` folder inside `Anvio_Results`. Upload these files to the iTOL website to create more visualizations.
 
-  1.  ANIb_alignment_coverage.newick: Tree based on the percentage of the genomes that aligned.
-  2.  ANIb_full_percentage_identity.newick: Tree based on the nucleotide identity across the entire aligned region.
-  3.  **ANIb_percentage_identity.newick**: Tree based on the standard percentage identity (this is a very common choice).
-  4.  ANIb_hadamard.newick: Tree based on a Hadamard-transformed distance matrix (another way to represent the identity data).
+  1. ANIb_alignment_coverage.newick: Tree based on the percentage of the genomes that aligned.
+  2. ANIb_full_percentage_identity.newick: Tree based on the nucleotide identity across the entire aligned region.
+  3. **ANIb_percentage_identity.newick**: Tree based on the standard percentage identity (this is a very common choice).
+  4. ANIb_hadamard.newick: Tree based on a Hadamard-transformed distance matrix (another way to represent the identity data).
 
   - Watch this video for more information:
 
@@ -550,14 +551,8 @@ In your browser, type `localhost:8080` to render the page. Finally, press Ctrl+C
 
 [An anvi'o tutorial with Trichodesmium genomes](https://anvio.org/tutorials/trichodesmium-tutorial/)
 
-anvi-summarize -p /home/gayan/Documents/PanAnalyzer/OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -g /home/gayan/Documents/PanAnalyzer/OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db --list-collections
-
-anvi-summarize -p /home/gayan/Documents/PanAnalyzer/OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -g /home/gayan/Documents/PanAnalyzer/OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db -C DEFAULT --fix-sad-tables
-
-anvi-summarize -p /home/gayan/Documents/PanAnalyzer/OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -g /home/gayan/Documents/PanAnalyzer/OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db -C DEFAULT -o PAN_SUMMARY
-
 ## Credits
 
-#### Himani Karunathilake
+### Himani Karunathilake
 
-#### Vinura Mannapperuma
+### Vinura Mannapperuma
