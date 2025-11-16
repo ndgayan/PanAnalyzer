@@ -428,6 +428,24 @@ The `external-genomes.txt` file has the paths to individual `contigs.db` files c
 anvi-gen-genomes-storage -e external-genomes.txt -o MY-GENOMES.db
 ```
 
+#### Add Metadata tp PAN Database and the functional enrichments.
+
+Create a tab separated metadata file. Keep note on column names. The "genome_id" must be in the first column. 
+
+Metadata.txt is:
+genome_id phylogroup
+NP1 bivia
+NP2 bivia
+NP4 bivia
+NP5 bivia
+...
+
+```bash
+nvi-import-misc-data -p /home/gayan/Documents/PanAnalyzer/OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db --target-data-table layers /home/gayan/Documents/PanAnalyzer/DATA/Metadata.txt
+
+anvi-compute-functional-enrichment-in-pan -p /home/gayan/Documents/PanAnalyzer/OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -g /home/gayan/Documents/PanAnalyzer/OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db -o functional-enrichment-txt --category-variable phylogroup --annotation-source COG20_FUNCTION
+```
+
 #### Compute ANI
 
 Compute ANI (Average Nucleotide Identity). This will generate the `*.newick` files to analyze on the [iTOL](https://itol.embl.de) website.
@@ -436,7 +454,7 @@ Compute ANI (Average Nucleotide Identity). This will generate the `*.newick` fil
 anvi-compute-genome-similarity --external-genomes external-genomes.txt --program pyANI --output-dir ANI_Results --pan-db MY-PROJECT/MY-PROJECT-PAN.db
 ```
 
-#### Optional - Adding Phylogenomic Tree to Your Pipeline
+#### Optional - Adding Phylogenomic Tree to Your Pipeline and you can visualize on iTOL
 
 If you want to generate phylogenomic_tree.nwk, add this step after the pan-genome analysis:
 
@@ -458,14 +476,32 @@ Key Differences
    - Use case: Shows evolutionary relationships based on core genome
 
 ```bash
-# Create a default collection (Optional)
-# anvi-script-add-default-collection -p OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db
+anvi-get-sequences-for-gene-clusters -p ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db \
+                                    -g ./OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db \
+                                    --concatenate-gene-clusters \
+                                    --max-num-genes-from-each-genome 1 \
+                                    --min-num-genomes-gene-cluster-occurs 60 \
+                                    -o ./OUTPUT/Anvio_Results/concatenated_alignment.fa
 
-# Get sequences for gene clusters
-anvi-get-sequences-for-gene-clusters -p ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -g ./OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db --min-num-genomes-gene-cluster-occurs NUM_OF_GENES_IN_YOUR_STUDY --concatenate-gene-clusters --output-file ./OUTPUT/Anvio_Results/PAN/gene_clusters_aligned.faa
+# Test (Only one bootstrap value created)
+anvi-gen-phylogenomic-tree -f /home/gayan/Documents/PanAnalyzer/OUTPUT/Anvio_Results/concatenated_alignment.fa \
+                           -o /home/gayan/Documents/PanAnalyzer/OUTPUT/Anvio_Results/phylogenomic_tree_with_bootstraps.txt \
+                           --program fasttree
 
-anvi-gen-phylogenomic-tree -f ./OUTPUT/Anvio_Results/PAN/gene_clusters_aligned.faa -o ./OUTPUT/Anvio_Results/PAN/phylogenomic_tree.nwk
+iqtree -s ./OUTPUT/Anvio_Results/concatenated_alignment.fa \
+      -m TEST \
+      -bb 100 \
+      -T 8 \
+      --prefix ./OUTPUT/Anvio_Results/IQ-TREE_phylogeny
 ```
+
+##### What this does?
+
+- -s: Your input alignment (sequence) file.
+- -m TEST: Automatically finds the best-fit substitution model.
+- -b 100: Runs 100 standard bootstrap replicates. This is what you've been looking for.
+- -T 8: Uses 8 threads.
+- --prefix: Sets the output name for all the files iqtree will create.
 
 #### Run the pan genome
 

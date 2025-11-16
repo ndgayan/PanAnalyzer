@@ -36,7 +36,7 @@ PIPE_SPADES = False
 PIPE_ANVI_O = False
 PIPE_RELATIONSHIPS = False
 
-PIPE_PROKKA = True
+PIPE_PROKKA = False
 PIPE_ROARY = True
 
 ########################################################################################################################
@@ -600,27 +600,27 @@ if __name__ == "__main__":
 
         # IQ TREE Phylogenetic Analysis
 
-        print("\nRunning IQ-TREE phylogenetic analysis...")
+        # print("\nRunning IQ-TREE phylogenetic analysis...")
 
-        # Run IQ-TREE -> http://www.iqtree.org/
-        command = [
-            CONDA_PATH,
-            "run",
-            "-n",
-            "GEM-ROARY",  # or your IQ-TREE conda environment
-            "iqtree",
-            "-s",
-            "core_gene_alignment.aln",  # Input alignment
-            "-T",
-            THREADS,  # Number of threads
-            "-m",
-            "GTR+G",  # GTR model with Gamma rate heterogeneity
-            "-bb",
-            "1000",  # Bootstrap replicates (1000 is standard)
-        ]
-        result = app_utility.bash_execute(command)
-        if not result["success"]:
-            print(f"Error running IQ-TREE: {result['error'].output}")
-            exit(1)
+        # # Run IQ-TREE -> http://www.iqtree.org/
+        # command = [
+        #     CONDA_PATH,
+        #     "run",
+        #     "-n",
+        #     "GEM-ROARY",  # or your IQ-TREE conda environment
+        #     "iqtree",
+        #     "-s",
+        #     "core_gene_alignment.aln",  # Input alignment
+        #     "-T",
+        #     THREADS,  # Number of threads
+        #     "-m",
+        #     "GTR+G",  # GTR model with Gamma rate heterogeneity
+        #     "-bb",
+        #     "1000",  # Bootstrap replicates (1000 is standard)
+        # ]
+        # result = app_utility.bash_execute(command)
+        # if not result["success"]:
+        #     print(f"Error running IQ-TREE: {result['error'].output}")
+        #     exit(1)
 
-        print("\n✅ IQ-TREE phylogenetic analysis completed.")
+        # print("\n✅ IQ-TREE phylogenetic analysis completed.")
