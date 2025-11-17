@@ -4,7 +4,6 @@
 # Date: 2025-11-08
 ########################################################################################################################
 
-import csv
 import os
 import shutil
 import subprocess
@@ -12,15 +11,6 @@ import subprocess
 ########################################################################################################################
 # Helper Methods
 ########################################################################################################################
-
-
-def _filter_samples_by_type(samples_dict, filter_type):
-    """Filter samples dictionary by type."""
-    return {
-        sample_id: info
-        for sample_id, info in samples_dict.items()
-        if info[0] == filter_type
-    }
 
 
 def _create_file_lookup(file_paths):
@@ -139,10 +129,10 @@ def get_files_from_directory(directory_path):
 
 def read_study_file(file_path):
     """
-    Read the study CSV file and return a dictionary.
+    Read the study tab-separated file and return a dictionary.
 
     Args:
-        file_path (str): Path to the CSV file
+        file_path (str): Path to the tab-separated file
 
     Returns:
         dict: Dictionary with sample IDs as keys and [type, species_name] as values
@@ -155,9 +145,18 @@ def read_study_file(file_path):
 
     sample_dict = {}
     with open(file_path, "r", encoding="utf-8") as file:
-        for row in csv.reader(file):
-            if len(row) >= 3:
-                sample_dict[row[0].strip()] = [row[1].strip(), row[2].strip()]
+        next(file)
+
+        for line in file:
+            line = line.strip()
+            if not line:
+                continue
+
+            parts = line.split("\t")
+            if len(parts) >= 2:
+                sample_id = parts[0].strip()
+                species = parts[1].strip()
+                sample_dict[sample_id] = species
 
     print(f"Successfully loaded {len(sample_dict)} samples from {file_path}")
     return sample_dict
@@ -223,14 +222,12 @@ def generate_external_genomes_file(
 ########################################################################################################################
 
 
-def validate_sample_files(
-    samples_dict, sample_files, forward_postfix, reverse_postfix, filter_type="Sample"
-):
+def validate_sample_files(samples_head, sample_files, forward_postfix, reverse_postfix):
     """
     Validate that each sample has both forward and reverse read files.
 
     Args:
-        samples_dict (dict): Dictionary with sample IDs as keys and [type, species_name] as values
+        samples_head (dict): Dictionary with sample IDs as keys and species_name as values
         sample_files (list): List of file paths in the Samples directory
         forward_postfix (str): Expected postfix for forward reads
         reverse_postfix (str): Expected postfix for reverse reads
@@ -242,15 +239,17 @@ def validate_sample_files(
     Raises:
         FileNotFoundError: If required files are missing
     """
-    filtered_samples = _filter_samples_by_type(samples_dict, filter_type)
     available_files = _create_file_lookup(sample_files)
 
-    print(f"\nValidating {len(filtered_samples)} samples of type '{filter_type}'...")
+    print(f"\nValidating {len(samples_head)} samples...")
 
     validated_samples = {}
     missing_files = []
 
-    for sample_id, sample_info in filtered_samples.items():
+    for sample_id, sample_info in samples_head.items():
+        if sample_id.startswith("R_"):
+            continue
+
         forward_file, reverse_file = _find_paired_read_files(
             sample_id, available_files, forward_postfix, reverse_postfix
         )
@@ -259,8 +258,7 @@ def validate_sample_files(
             validated_samples[sample_id] = {
                 "forward": forward_file,
                 "reverse": reverse_file,
-                "type": sample_info[0],
-                "species": sample_info[1],
+                "species": sample_info,
             }
         else:
             missing_files.extend(
@@ -282,14 +280,12 @@ def validate_sample_files(
     return validated_samples
 
 
-def validate_reference_files(
-    samples_dict, reference_files, file_extension=".fna", filter_type="Reference"
-):
+def validate_reference_files(samples_head, reference_files, file_extension=".fna"):
     """
     Validate that each reference sample has its corresponding reference file.
 
     Args:
-        samples_dict (dict): Dictionary with sample IDs as keys and [type, species_name] as values
+        samples_head (dict): Dictionary with sample IDs as keys and species_name as values
         reference_files (list): List of file paths in the Reference directory
         file_extension (str): Expected file extension (default: ".fna")
         filter_type (str): Filter samples by type (default: "Reference")
@@ -300,17 +296,16 @@ def validate_reference_files(
     Raises:
         FileNotFoundError: If required files are missing
     """
-    filtered_samples = _filter_samples_by_type(samples_dict, filter_type)
     available_files = _create_file_lookup(reference_files)
 
-    print(
-        f"\nValidating {len(filtered_samples)} reference samples of type '{filter_type}'..."
-    )
+    print(f"\nValidating {len(samples_head)} reference samples...")
 
     validated_references = {}
     missing_files = []
 
-    for sample_id, sample_info in filtered_samples.items():
+    for sample_id, sample_info in samples_head.items():
+        if not sample_id.startswith("R_"):
+            continue
         expected_filename = f"{sample_id}{file_extension}"
 
         # Try exact match, then case-insensitive match
@@ -326,8 +321,7 @@ def validate_reference_files(
         if reference_file:
             validated_references[sample_id] = {
                 "file": reference_file,
-                "type": sample_info[0],
-                "species": sample_info[1],
+                "species": sample_info,
             }
         else:
             missing_files.append(
@@ -343,12 +337,12 @@ def validate_reference_files(
     return validated_references
 
 
-def validate_spades_output(samples_dict, spades_output_dir, filter_type="Sample"):
+def validate_spades_output(samples_head, spades_output_dir):
     """
     Validate that each sample has a corresponding output folder with contigs.fasta.
 
     Args:
-        samples_dict (dict): Dictionary with sample IDs as keys and [type, species_name] as values
+        samples_head (dict): Dictionary with sample IDs as keys and [species_name as values
         spades_output_dir (str): Path to SPAdes output directory
         filter_type (str): Filter samples by type (default: "Sample")
 
@@ -358,19 +352,16 @@ def validate_spades_output(samples_dict, spades_output_dir, filter_type="Sample"
     Raises:
         FileNotFoundError: If any sample folder or contigs.fasta is missing
     """
-    filtered_samples = {
-        sample_id: info
-        for sample_id, info in samples_dict.items()
-        if info[0] == filter_type
-    }
 
-    print(f"\nValidating SPAdes output for {len(filtered_samples)} samples...")
+    print("\nValidating SPAdes output for samples...")
 
     contigs_dict = {}
     missing_folders = []
     missing_contigs = []
 
-    for sample_id in filtered_samples.keys():
+    for sample_id in samples_head.keys():
+        if sample_id.startswith("R_"):
+            continue
         sample_folder = os.path.join(spades_output_dir, sample_id)
         contigs_file = os.path.join(sample_folder, "contigs.fasta")
 
