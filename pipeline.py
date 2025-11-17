@@ -22,8 +22,12 @@ CONDA_PATH = os.path.expanduser(
 )  # Only modify if Conda is installed elsewhere
 CONDA_ENV = "GEM"  # Name of your Conda environment with required tools installed
 
-# SAMPLES_PREFIX = "study_all.txt"  # Name of the study file
 SAMPLES_PREFIX = "study_all_wo_ref.txt"  # Name of the study file
+CATEGORICAL_VARIABLE = (
+    "species"  # Column name in the SAMPLES_PREFIX for grouping samples
+)
+ANNOTATION_SOURCES = ["COG20_CATEGORY", "COG20_PATHWAY", "COG20_FUNCTION"]
+
 REFERENCE_FILE_EXTENSION = ".fna"
 
 SAMPLE_FORWARD_READS_POSTFIX = "R1_001.trim.fastq.gz"
@@ -37,9 +41,12 @@ REFRESH = False
 
 # RUN PIPELINE STEPS
 PIPE_FASTQC = False
+
 PIPE_SPADES = False
+
 PIPE_ANVI_O = True
-PIPE_PAN_STUDY = False
+
+PIPE_PAN_STUDY = False  # Backup your Anvio_Results folder before enabling this step
 
 ########################################################################################################################
 ########################################################################################################################
@@ -388,40 +395,103 @@ if __name__ == "__main__":
 
         print("\n✅ Pangenome analysis completed successfully.")
 
-        # # Compute ANI (Average Nucleotide Identity) -> https://anvio.org/help/8/programs/anvi-compute-genome-similarity/
-        # command = [
-        #     CONDA_PATH,
-        #     "run",
-        #     "-n",
-        #     CONDA_ENV,
-        #     "anvi-compute-genome-similarity",
-        #     "--external-genomes",
-        #     external_genomes_file,
-        #     "--program",
-        #     "pyANI",
-        #     "--output-dir",
-        #     os.path.join(ANVIO_OUTPUT, "ANI"),
-        #     "--num-threads",
-        #     THREADS,
-        #     "--pan-db",
-        #     os.path.join(ANVIO_OUTPUT, "PAN", f"{ANVIO_PROJECT_NAME}-PAN.db"),
-        # ]
-        # result = app_utility.bash_execute(command)
-        # if not result["success"]:
-        #     print(f"Error computing genome similarity: {result['error'].output}")
-        #     exit(1)
+        # Compute ANI (Average Nucleotide Identity) -> https://anvio.org/help/8/programs/anvi-compute-genome-similarity/
+        command = [
+            CONDA_PATH,
+            "run",
+            "-n",
+            CONDA_ENV,
+            "anvi-compute-genome-similarity",
+            "--external-genomes",
+            external_genomes_file,
+            "--program",
+            "pyANI",
+            "--output-dir",
+            os.path.join(ANVIO_OUTPUT, "ANI"),
+            "--num-threads",
+            THREADS,
+            "--pan-db",
+            os.path.join(ANVIO_OUTPUT, "PAN", f"{ANVIO_PROJECT_NAME}-PAN.db"),
+        ]
+        result = app_utility.bash_execute(command)
+        if not result["success"]:
+            print(f"Error computing genome similarity: {result['error'].output}")
+            exit(1)
 
-        # print(
-        #     "\n✅ Genome similarity analysis completed successfully. Please find GenomeDB and PanDB in the Anvio_Results directory. Please use server.py script to run the pan genome web server and visualize the pan."
-        # )
+        print(
+            "\n✅ Genome similarity analysis completed successfully. Please find GenomeDB and PanDB in the Anvio_Results directory. Please use server.py script to run the pan genome web server and visualize the pan."
+        )
 
     if PIPE_PAN_STUDY:
+        study_dir = os.path.join(ANVIO_OUTPUT, "STUDY")
+        if os.path.exists(study_dir):
+            import shutil
+
+            shutil.rmtree(study_dir)
+            print(f"✓ Removed existing directory: {study_dir}")
+
+        # Create fresh STUDY directory
+        os.makedirs(study_dir, exist_ok=True)
+        print(f"✓ Created clean directory: {study_dir}\n")
+
+        # Add custom grouping layers to the Pan DB -> https://anvio.org/help/main/programs/anvi-import-misc-data/
+        print("\nAdding custom grouping layers to the Pan DB...")
+        command = [
+            CONDA_PATH,
+            "run",
+            "-n",
+            CONDA_ENV,
+            "anvi-import-misc-data",
+            "-p",
+            os.path.join(ANVIO_OUTPUT, "PAN", f"{ANVIO_PROJECT_NAME}-PAN.db"),
+            "--target-data-table",
+            "layers",
+            f"./DATA/{SAMPLES_PREFIX}",
+            "--just-do-it",
+        ]
+        result = app_utility.bash_execute(command)
+        if not result["success"]:
+            print(f"Error on adding custom grouping layers: {result['error'].output}")
+            exit(1)
+        print("\n✅ Custom grouping layers added to the Pan DB.")
+
+        # Functional enrichment analysis based on custom groups -> https://anvio.org/help/main/programs/anvi-compute-functional-enrichment-in-pan/
+        print("\nRunning functional enrichment analysis based on custom groups...")
+        for annotation_source in ANNOTATION_SOURCES:
+            print(f"\nUsing annotation source: {annotation_source}")
+            command = [
+                CONDA_PATH,
+                "run",
+                "-n",
+                CONDA_ENV,
+                "anvi-compute-functional-enrichment-in-pan",
+                "-p",
+                os.path.join(ANVIO_OUTPUT, "PAN", f"{ANVIO_PROJECT_NAME}-PAN.db"),
+                "-g",
+                os.path.join(ANVIO_OUTPUT, ANVIO_GENOMES_DB),
+                "--category-variable",
+                CATEGORICAL_VARIABLE,
+                "--annotation-source",
+                annotation_source,
+                "-o",
+                os.path.join(
+                    study_dir, f"functional-enrichment-{annotation_source}.txt"
+                ),
+            ]
+            result = app_utility.bash_execute(command)
+            if not result["success"]:
+                print(
+                    f"Error on functional enrichment analysis on {annotation_source}: {result['error'].output}"
+                )
+                exit(1)
+        print("\n✅ Functional enrichment analysis completed.")
+
         # Compute phylogenomic tree from core genes -> https://anvio.org/help/main/programs/anvi-get-sequences-for-gene-clusters/
 
         # ANIb_percentage_identity.newick: Best for strain typing and identifying closely related isolates
         # phylogenomic_tree.nwk: Best for evolutionary analysis and understanding gene-level relationships
         # Both trees may show similar clustering patterns for closely related genomes, but can differ significantly when comparing more divergent strains or when horizontal gene transfer is involved.
-        print("\nExtracting core gene sequences for phylogenomic tree...")
+        print("\nExtracting core gene sequences for phylogenic tree...")
         command = [
             CONDA_PATH,
             "run",
@@ -432,14 +502,11 @@ if __name__ == "__main__":
             os.path.join(ANVIO_OUTPUT, "PAN", f"{ANVIO_PROJECT_NAME}-PAN.db"),
             "-g",
             os.path.join(ANVIO_OUTPUT, ANVIO_GENOMES_DB),
-            # "--min-num-genomes-gene-cluster-occurs",
-            str(len(combined_genomes)),
             "--concatenate-gene-clusters",
-            "--output-file",
-            os.path.join(ANVIO_OUTPUT, "PAN", "gene_clusters_aligned.faa"),
+            "--max-num-genes-from-each-genome 1",
+            "-o",
+            os.path.join(ANVIO_OUTPUT, "STUDY", "concatenated_alignment.aln"),
             "--force-overwrite",
-            "-C",
-            "DEFAULT",
         ]
         result = app_utility.bash_execute(command)
         if not result["success"]:
@@ -449,6 +516,8 @@ if __name__ == "__main__":
         print("\n✅ Core gene sequences extracted.")
 
         # Generate phylogenomic tree -> https://anvio.org/help/main/programs/anvi-gen-phylogenomic-tree/
+        print("\nGenerating phylogenomic tree from core gene alignment...")
+
         command = [
             CONDA_PATH,
             "run",
@@ -456,13 +525,45 @@ if __name__ == "__main__":
             CONDA_ENV,
             "anvi-gen-phylogenomic-tree",
             "-f",
-            os.path.join(ANVIO_OUTPUT, "PAN", "gene_clusters_aligned.faa"),
+            os.path.join(ANVIO_OUTPUT, "STUDY", "concatenated_alignment.aln"),
             "-o",
-            os.path.join(ANVIO_OUTPUT, "PAN", "phylogenomic_tree.nwk"),
+            os.path.join(ANVIO_OUTPUT, "STUDY", "phylogenomic_tree.nwk"),
+            "--program",
+            "iqtree",
         ]
         result = app_utility.bash_execute(command)
         if not result["success"]:
             print(f"Error generating phylogenomic tree: {result['error'].output}")
             exit(1)
 
-        print("\n✅ Phylogenic tree generated successfully.")
+        print("\n✅ Phylogenomic tree generated successfully.")
+
+        # Generate IQ-TREE with bootstraps. See other options.
+        print("\nGenerating IQ-TREE with bootstraps from core gene alignment...")
+
+        command = [
+            CONDA_PATH,
+            "run",
+            "-n",
+            CONDA_ENV,
+            "iqtree",
+            "-s",
+            os.path.join(ANVIO_OUTPUT, "STUDY", "concatenated_alignment.aln"),
+            "-m",
+            "LG+I+G4",
+            "-B",
+            "1000",
+            "-alrt",
+            "1000",
+            "-T",
+            THREADS,
+            "--prefix",
+            os.path.join(ANVIO_OUTPUT, "STUDY", "IQ-TREE"),
+            "--fast",  # Use fast mode for quicker results (1 to 3 Days)
+        ]
+        result = app_utility.bash_execute(command)
+        if not result["success"]:
+            print(f"Error generating IQ-TREE: {result['error'].output}")
+            exit(1)
+
+        print("\n✅ IQ-TREE with bootstraps generated successfully.")

@@ -176,7 +176,7 @@ conda activate GEM  # If Conda environment is not already activated.
 conda install -c bioconda iqtree
 iqtree --help
 # In the root folder Roary_Results_<Number> folder generated.
-iqtree -s core_gene_alignment.aln -T 8 -m GTR+G -bb 1000
+iqtree -s core_gene_alignment.aln -T 8 -m GTR+G -B 1000
 #Analysis results written to: 
    #IQ-TREE report:                core_gene_alignment.aln.iqtree
    #Maximum-likelihood tree:       core_gene_alignment.aln.treefile
@@ -418,6 +418,8 @@ This program implements pangenomics, and organizes genes found within a genomes-
 anvi-pan-genome -g MY-GENOMES.db -n MY-GENOME_PROJECT -o ./PAN --num-threads 8 --minbit 0.5 --mcl-inflation 10 --use-ncbi-blast
 ```
 
+#### <span style="color:red">⚠️ IMPORTANT: Backup your Anvio Results folder before proceeding to the next steps. The next steps will modify the PAN database and may overwrite existing data. ⚠️</span>
+
 #### Add Metadata tp PAN Database and the functional enrichments
 
 Create a tab separated metadata file. Keep note on column names. The "genome_id" couln name must be in the first column.
@@ -431,23 +433,32 @@ NP5 bivia
 ...
 
 ```bash
+# Create a study folder in the Anvio_Results folder.
+mkdir ./OUTPUT/Anvio_Results/STUDY
+
 # OPTIONAL
 
+# See database information
+anvi-db-info ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db
+
 # See layers in the Pan DB.
-anvi-export-table --table layer_additional_data -o ./DATA/genome_metadata_template.txt ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db
+anvi-export-table --table layer_additional_data ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -o ./OUTPUT/Anvio_Results/STUDY/genome_metadata_template.txt
 
 # More optional commands.
 anvi-summarize -p ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -g ./OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db --list-collections
-anvi-summarize -p ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -g ./OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db -C DEFAULT --fix-sad-tables
-anvi-summarize -p ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -g ./OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db -C DEFAULT -o PAN_SUMMARY
+
+anvi-summarize -p ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -g ./OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db -C <Collection_Name> --fix-sad-tables
+
+anvi-summarize -p ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -g ./OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db -C <Collection_Name> -o ./OUTPUT/Anvio_Results/STUDY/PAN-Summary.txt
 
 # END OPTIONAL
 
 # Add custome grouping layers to the Pan DB
-nvi-import-misc-data -p ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db --target-data-table layers ./DATA/study_all_except_ref.txt
+anvi-import-misc-data -p ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db --target-data-table layers ./DATA/study_all_wo_ref.txt
 
 # Do the enrichment based on custom groups. E.g., "species" column in the DATA-> Samples -> Study_WO_Ref.txt metadata file. This is a tab separated file.
-anvi-compute-functional-enrichment-in-pan -p ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -g ./OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db -o ./OUTPUT/Anvio_Results/functional-enrichment.txt --category-variable species --annotation-source COG20_FUNCTION
+anvi-compute-functional-enrichment-in-pan -p ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-PAN.db -g ./OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db --category-variable species --annotation-source COG20_FUNCTION -o ./OUTPUT/Anvio_Results/STUDY/functional-enrichment.txt
+# Options are COG20_CATEGORY, COG20_PATHWAY, COG20_FUNCTION
 ```
 
 #### Compute ANI
@@ -484,16 +495,15 @@ anvi-get-sequences-for-gene-clusters -p ./OUTPUT/Anvio_Results/PAN/PanAnalyzer-P
                                     -g ./OUTPUT/Anvio_Results/PanAnalyzer-GENOMES.db \
                                     --concatenate-gene-clusters \
                                     --max-num-genes-from-each-genome 1 \
-                                    --min-num-genomes-gene-cluster-occurs 60 \
-                                    -o ./OUTPUT/Anvio_Results/concatenated_alignment.aln
+                                    -o ./OUTPUT/Anvio_Results/STUDY/concatenated_alignment.aln
 
 # Test (Only one bootstrap value created)
 anvi-gen-phylogenomic-tree -f ./OUTPUT/Anvio_Results/concatenated_alignment.aln \
-                           -o ./OUTPUT/Anvio_Results/phylogenomic_tree_with_bootstraps.txt
+                           -o ./OUTPUT/Anvio_Results/STUDY/phylogenomic_tree_with_bootstraps.txt
                            --program fasttree
 
 # IQ TREE to create tree
-iqtree -s ./OUTPUT/Anvio_Results/concatenated_alignment.aln -m TEST -bb 100 -T 8 --prefix ./OUTPUT/Anvio_Results/IQ-TREE
+iqtree -s ./OUTPUT/Anvio_Results/STUDY/concatenated_alignment.aln -m LG+I+G4 -B 1000 -alrt 1000 -T 10 --prefix ./OUTPUT/Anvio_Results/STUDY/IQ-TREE
 ```
 
 ##### What this does?
