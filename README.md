@@ -30,7 +30,7 @@ The true power of PanAnalyzer is realized in the final visualization. Anvio's in
 
 ### Conda Setup (Optional)
 
-Below are the steps to set up using Conda environment manager on Linux (Debian based). Skip if you already have Conda installed in your system.
+Below are the steps to set up using Conda environment manager on Linux. Skip if you already have Conda installed in your system.
 
 ```bash
 # Create a folder in the user's home directory.
